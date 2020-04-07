@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Fauna loading...</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.css" crossorigin="anonymous" />
+  <link href="https://unpkg.com/nes.css/css/nes-core.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="./fauna.css" />
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.0.0/lib/p5.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./fauna.js"></script>
+</head>
+<body>
+  <div id='gameclock' class='userbox dispnone'></div>
+  <div id='avbox' class='userbox dispnone'></div>
+  <div id='chatbox' class='userbox dispnone sidebox'>
+    <div id='chatmain'></div>
+    <div id='chatform' class='dispnone'>
+      <input type='text' id='chattext' class='chatctrl' />
+      <input type='submit' id='chatsend' value='⏎' class='chatctrl' />
+    </div>
+  </div>
+  <div id='infobox' class='sidebox'></div>
+
+  <div id='userbox' class='userbox dispnone'>
+    <div id='ub_new' class='dispnone'>
+      <h3 id='specieshdr'>Species Selection</h3>
+      <div id='speciesbox'></div>
+    </div>
+  </div>
+
+  <div id='howbox' class='dispnone'>
+    arrow keys scroll; '['/']' - res (zoom); 'l'/'L' - lod; 'f'/'F' - falloff; '_'/'+' - scale<br/>
+    'scroll' is scrolling speed (lower is faster); all can be spec'ed in query string
+  </div>
+
+  <br/>
+</body>
+</html>

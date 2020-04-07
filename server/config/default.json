@@ -1,0 +1,108 @@
+{
+  "http": {
+    "port": 14024,
+    "wsPort": 14025,
+    "wsPingFreq": 23,
+    "bind": "localhost",
+    "log": "http.log"
+  },
+  "redis": {
+    "url": "env:REDIS_URL"
+  },
+  "app": {
+    "menuAutohideDelay": null,
+    "cookieName": "faunaAvatar",
+    "sanitize": {
+      "lengthLimit": 4096,
+      "avatarNameLengthLimit": 128
+    },
+    "logChatToConsole": true,
+    "sendTimeUpdatesEvery": 3
+  },
+  "engine": {
+    "tickFreqHz": 10,
+    "timeMult": 1000000
+  },
+  "game": {
+    "block": {
+      "types": {
+        "0.2": "water",
+        "0.4": "grassland",
+        "0.6": "plains",
+        "0.8": "mountains",
+        "1.2": "peaks"
+      }
+    },
+    "meta": {
+      "statMax": 10
+    },
+    "species": {
+      "hummingbird": {
+        "displayName": "Hummingbird",
+        "stats": {
+          "agility": 10,
+          "longevity": 3,
+          "acuity": 5,
+          "tenacity": 8,
+          "mobility": 8,
+          "tranquility": 1
+        }
+      },
+      "morningdove": {
+        "displayName": "Morning Dove",
+        "stats": {
+          "agility": 4,
+          "longevity": 10,
+          "acuity": 2,
+          "tenacity": 5,
+          "mobility": 4,
+          "tranquility": 10
+        }
+      },
+      "bluebird": {
+        "displayName": "Scrub Jay",
+        "stats": {
+          "agility": 5,
+          "longevity": 9,
+          "acuity": 3,
+          "tenacity": 9,
+          "mobility": 7,
+          "tranquility": 3
+        }
+      },
+      "butterfly": {
+        "displayName": "Butterfly",
+        "stats": {
+          "agility": 9,
+          "longevity": 1,
+          "acuity": 1,
+          "tenacity": 5,
+          "mobility": 10,
+          "tranquility": 8
+        }
+      },
+      "sparrow": {
+        "displayName": "Sparrow",
+        "stats": {
+          "agility": 7,
+          "longevity": 3,
+          "acuity": 5,
+          "tenacity": 10,
+          "mobility": 5,
+          "tranquility": 3
+        }
+      },
+      "crow": {
+        "displayName": "Crow",
+        "stats": {
+          "agility": 3,
+          "longevity": 8,
+          "acuity": 10,
+          "tenacity": 9,
+          "mobility": 2,
+          "tranquility": 2
+        }
+      }
+    }
+  }
+}

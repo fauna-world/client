@@ -1,0 +1,175 @@
+BODY { 
+  background-color: #778899; 
+  text-align: center;
+  font-size: 9pt;
+  margin: 20px;
+}
+
+.go { background-color: #556677; }
+
+a {
+  color: #e9cd99;
+}
+
+a:link {
+  color: #e9cd99;
+}
+
+a:visited {
+  color: #ad925f;
+}
+
+input {
+  width: 50px;
+  font-size: 85%;
+  text-align: center;
+  background-color: #112233;
+  color: #ffffff;
+}
+
+input:disabled {
+  color: #777788;
+}
+
+.sidebox {
+  width: 20%;
+  padding: 5px 10px 5px 10px;
+}
+
+#howbox {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 8pt;
+}
+
+#infobox {
+  position: absolute;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11pt;
+  top: 200px;
+  left: 10px;
+}
+
+#gameclock {
+  position: absolute;
+  font-size: 9pt;
+  text-align: center;
+  right: 10px;
+  top: 10px;
+  padding: 7px;
+  min-width: 175px;
+}
+
+#chatbox {
+  position: absolute;
+  right: 10px;
+  top: 100px;
+}
+
+#chatmain {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
+  margin: 3px;
+  padding: 6px;
+  color: #112233;
+  background-color: #aabbcc;
+  text-align: left;
+}
+
+.chatctrl {
+  background-color: #334455;
+  color: #ccddee;
+  margin: 2px;
+}
+
+#chattext {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #334455;
+  color: #ccddee;
+  font-size: 10pt;
+  width: 70%;
+}
+
+.ctrllbl {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.dispnone {
+  display: none;
+}
+
+.userbox {
+  color: #ffffff;
+  background-color: #112233;
+  border: 2px solid #556677;
+  text-align: center;
+}
+
+#avbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 15px;
+}
+
+#userbox {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  padding: 2px 15px 2px 15px;
+}
+
+h3 {
+  text-decoration: underline;
+}
+
+#speciestable {
+  width: 100%;
+}
+
+.speciesavatar {
+  width: 96px;
+  height: 96px;
+  border: 1px solid #556677;
+}
+
+.speciesname {
+  text-decoration: underline;
+  font-variant: small-caps;
+}
+
+.speciesstats {
+  text-align: left;
+  padding: 15px;
+}
+
+.statclr {
+  font-weight: bolder;
+}
+
+.chatimg {
+  width: 16px;
+  height: 16px;
+  padding-right: 2px;
+}
+
+.statclr_1 { color: rgb(255, 0, 55); }
+.statclr_2 { color: rgb(255, 0, 0); }
+.statclr_3 { color: rgb(255, 94, 0); }
+.statclr_4 { color: rgb(255, 145, 0); }
+.statclr_5 { color: rgb(231, 216, 0); }
+.statclr_6 { color: rgb(169, 231, 0); }
+.statclr_7 { color: rgb(65, 231, 0); }
+.statclr_8 { color: rgb(0, 231, 116); }
+.statclr_9 { color: rgb(0, 231, 162); }
+.statclr_10 { color: rgb(0, 231, 219); }
+
+
+.invitem-small {
+  font-size: 9pt;
+}
+
+.invitem-reg {
+  font-size: 11pt;
+}
