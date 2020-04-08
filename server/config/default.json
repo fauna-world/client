@@ -21,7 +21,7 @@
   },
   "engine": {
     "tickFreqHz": 10,
-    "timeMult": 1000000
+    "timeMult": 100000
   },
   "game": {
     "block": {
