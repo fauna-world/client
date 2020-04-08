@@ -111,7 +111,7 @@ module.exports = class WsServer {
         type: 'chat',
         payload: `Hello, I'm ${NAME} ${VERSION}! You may find ` +
 	      'my source code <a href="https://github.com/fauna-world/fauna" target="_blank">here</a>. ' +
-	      'You are now connected. Stay home, wash your hands, and enjoy the beautiful around you!',
+	      'You are now connected. Stay home, wash your hands &amp; enjoy the beautiful world around you!',
         from: { name: NAME, id: -1 },
         localTs: Date.now(),
         to: 'global'
