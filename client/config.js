@@ -2,6 +2,7 @@ const config = {
   host: 'http://api.fauna.computerpho.be',
   msgHost: 'ws://ws.api.fauna.computerpho.be',
   cookieName: 'faunaAvatar',
+  heartbeat: 3,
   uiDefaults: {
     w: 960, 
     h: 768, 

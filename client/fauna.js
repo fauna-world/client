@@ -262,22 +262,43 @@ async function loadAvatar() {
   avbox.elt.style.display = 'block';
 }
 
-async function loadMessaging() {
-  let wsConn = new WebSocket(`${config.msgHost}/?${config.cookieName}=${avatarId}`);
+let lm_backoff = 0;
+let lm_handle;
+async function loadMessaging(reconnect = false) {
+  console.log(`loadMessaging(${reconnect}), bo=${lm_backoff}`);
+  let wsConn = new WebSocket(`${config.msgHost}/?${config.cookieName}=${avatarId}` + 
+    (reconnect ? '&rc=1' : ''));
+  ++lm_backoff;
+
   let chatbox = select('#chatbox');
+  let sendBut = select('#chatsend');
+  let sendTxt = select('#chattext');
 
   wsConn.addEventListener('open', () => {
     chatbox.style('display', 'block');
+    lm_backoff = 0;
+    clearTimeout(lm_handle);
+    const fromObj = Object.assign({}, avatar, { id: avatarId });
+    const heartbeat = () => {
+      wsConn.send(JSON.stringify({
+        type: 'heartbeat',
+        localTs: Date.now()
+      }));
+      lm_handle = setTimeout(heartbeat, config.heartbeat * 1000);
+    };
+    
+    heartbeat();
 
-    let sendBut = select('#chatsend');
-    let sendTxt = select('#chattext');
+    sendTxt.elt.disabled = false;
+    sendTxt.value('');
+    sendBut.elt.disabled = false;
     sendBut.elt.onclick = () => {
       let chkVal = sendTxt.value().trim();
       if (chkVal.length)
       wsConn.send(JSON.stringify({
         type: 'chat',
         payload: chkVal,
-        from: Object.assign({}, avatar, { id: avatarId }),
+        from: fromObj,
         localTs: Date.now(),
         to: 'global'
       }));
@@ -301,6 +322,8 @@ async function loadMessaging() {
         let gameDate = new Date(msgObj.payload.time);
         select('#gameclock').html(_seasons[gameDate.getMonth()] + ' ' + 
           `${String(gameDate.getFullYear()).padStart(4, '0')}<!--${msgObj.payload.epoch}-->`);
+      } else if (msgObj.type === 'reconnect') {
+        console.log(`successful reconnect at ${(new Date(msgObj.localTs)).toISOString()} (${(new Date()).toISOString()})`);
       }
     } catch (err) {
       console.log(`bad msg rx'ed! ${event.data}:`);
@@ -309,11 +332,23 @@ async function loadMessaging() {
   });
 
   wsConn.addEventListener('close', (ev) => {
-    console.log('Messaging channel closed!');
-    console.log(ev);
-    chatbox.style('display', 'none');
-    select('#gameclock').style('display', 'none');
-  })
+    clearTimeout(lm_handle);
+    let waitMs = 1 * ((lm_backoff + 1) ** 2);
+    console.log(`close ${ev.code}, trying to reconnect ${(new Date()).toISOString()}... (waiting ${waitMs}ms)`);
+    if (ev.code !== 1006 && ev.code !== 1001) {
+      console.log(ev);
+    }
+    sendTxt.elt.disabled = true;
+    sendTxt.value('reconnecting...');
+    sendBut.elt.disabled = true;
+    select('#gameclock').html('???');
+    setTimeout(loadMessaging.bind(null, true), waitMs);
+  });
+
+  wsConn.addEventListener('error', (err) => {
+    console.log(`ws err!`);
+    console.log(err);
+  });
 
   window.onclose = () => {
     wsConn.close();
@@ -419,6 +454,7 @@ async function mapSetup() {
     infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
     infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
     infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
+    infBox.html(`<i>loading <b>(${showX},${showY})</b>...</i>`)
 
     const loadBlock = async (worldId, showX, showY) => {
       let rootQStr = `world/${worldId}/block/${showX}/${showY}`;

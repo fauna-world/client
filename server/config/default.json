@@ -2,7 +2,7 @@
   "http": {
     "port": 14024,
     "wsPort": 14025,
-    "wsPingFreq": 23,
+    "wsPingFreq": 11,
     "bind": "localhost",
     "log": "http.log"
   },
@@ -17,7 +17,8 @@
       "avatarNameLengthLimit": 128
     },
     "logChatToConsole": true,
-    "sendTimeUpdatesEvery": 3
+    "sendTimeUpdatesEvery": 17,
+    "motdFile": "motd.html"
   },
   "engine": {
     "tickFreqHz": 10,

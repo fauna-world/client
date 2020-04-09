@@ -1,8 +1,14 @@
 const ws = require('ws');
+const fs = require('fs');
 const url = require('url');
 const config = require('config');
 const { sanitize, NAME, VERSION } = require('./util');
-const { ALERT_CHAR } = require('./style');
+const { ALERT_CHAR, WARN_CHAR } = require('./style');
+
+const motdInterpolations = {
+  NAME,
+  VERSION
+};
 
 module.exports = class WsServer {
   constructor (opts) {
@@ -22,6 +28,12 @@ module.exports = class WsServer {
       }
     };
 
+    this.olog = this.log
+    this.log = (str, req) => {
+      if (req) return this.olog(str, req);
+      this.olog(`[WS] ${(new Date).toISOString()} ${(typeof str === 'object' ? JSON.stringify(str) : str)}`);
+    };
+
     this.onmap = {};
     this.conns = {};
     this.wsPingerHandle = null;
@@ -35,6 +47,10 @@ module.exports = class WsServer {
     
     this.wsServer.on('listening', this.onListening.bind(this));
     this.wsServer.on('connection', this.onConnection.bind(this));
+    this.wsServer.on('error', (err) => {
+      this.log(`ws server socket error!`);
+      this.log(err);
+    });
   }
 
   on(event, handler) {
@@ -52,15 +68,25 @@ module.exports = class WsServer {
   wsPinger() {
     const realPinger = () => {
       Object.keys(this.conns).forEach((connKey) => {
-        if (this.conns[connKey].waitingOnPong === true) {
-          this.log(`conn ${connKey} didn't 'pong' back: removing`);
-          this.conns[connKey].close();
-          delete this.conns[connKey];
-          return;
+        if (this.conns[connKey].waitingOnPong > 0) {
+          this.log(`conn ${connKey} didn't 'pong' back: ${this.conns[connKey].waitingOnPong}; killing`);
+          this.log(`last heartbeat delta: ${Date.now() - this.conns[connKey].lastHeartbeat}`);
+          if (this.conns[connKey].waitingOnPong === 1) {
+            this.log('trying polite close first...');
+            this.conns[connKey].close(1002, 'ping not ponged');
+            ++this.conns[connKey].waitingOnPong;
+          } else {
+            this.log('not polite this time');
+            this.conns[connKey].terminate();
+            delete this.conns[connKey];
+          }
+        } else {
+          if (this.conns[connKey].waitingOnPong++) {
+            this.log(`${WARN_CHAR} still waiting on a pong from ${connKey} (${this.conns[connKey].waitingOnPong})`);
+          }
+          //this.log(`pinging ${connKey} (${this.conns[connKey].waitingOnPong})`);
+          this.conns[connKey].ping(Buffer.from('PING', 'utf8'));
         }
-
-        this.conns[connKey].waitingOnPong = true;
-        this.conns[connKey].ping();
       });
       this.wsPingerHandle = setTimeout(realPinger, config.http.wsPingFreq * 1000);
     };
@@ -87,35 +113,60 @@ module.exports = class WsServer {
     let err;
     if (config.app.cookieName in qs) {
       let wsAvatarId = qs[config.app.cookieName];
+      let isReconnect = qs.rc;
 
-      if (wsAvatarId in this.conns) {
-        this.log(`already have a connection for ${wsAvatarId}! tossing it`);
-        this.conns[wsAvatarId].close();
-        delete this.conns[wsAvatarId];
+      if (wsAvatarId in this.conns && !isReconnect) {
+        this.log(`already have a connection for ${wsAvatarId} (${this.conns[wsAvatarId].waitingOnPong})! tossing it`);
+        let closeReason = 1008;
+        if ('closeReason' in this.conns[wsAvatarId]) {
+          this.log(`but has a marked close reason '${this.conns[wsAvatarId].closeReason}'!`);
+          closeReason = this.conns[wsAvatarId].closeReason;
+        }
+        this.conns[wsAvatarId].close(closeReason, 'already connected');
+        //delete this.conns[wsAvatarId];
       } else {
-        this.log(`new ws connection for ${wsAvatarId}`);
+        this.log(`${(isReconnect ? 'reconn' : 'new')} ws for ${wsAvatarId}`);
+        if (isReconnect && wsAvatarId in this.conns) {
+          this.conns[wsAvatarId].waitingOnPong = 0;
+        }
       }
+
+      this.conns[wsAvatarId] = c;
       
       ++this.rtInfo.counts.connections.ok;
       c.rxQueue = [];
-      c.waitingOnPong = false;
+      c.waitingOnPong = 0;
+      c.lastHeartbeat = Date.now();
       c.origSend = c.send;
       c.send = (msg) => {
         ++this.rtInfo.counts.messages.tx;
         return c.origSend(msg);
       };
 
-      this.conns[wsAvatarId] = c;
+      if (!isReconnect) {
+        let motd = `Hello, I'm ${NAME} ${VERSION}! You are now connected.`;
+        if (fs.existsSync(config.app.motdFile)) {
+          motd = fs.readFileSync(config.app.motdFile, { encoding: 'utf8' })
+            .replace(/\${([A-Z_]+)}/g, (_, group1) => { 
+              return group1 in motdInterpolations ? motdInterpolations[group1] : group1; });
+        }
 
-      c.send(JSON.stringify({
-        type: 'chat',
-        payload: `Hello, I'm ${NAME} ${VERSION}! You may find ` +
-	      'my source code <a href="https://github.com/fauna-world/fauna" target="_blank">here</a>. ' +
-	      'You are now connected. Stay home, wash your hands &amp; enjoy the beautiful world around you!',
-        from: { name: NAME, id: -1 },
-        localTs: Date.now(),
-        to: 'global'
-      }));
+        c.send(JSON.stringify({
+          type: 'chat',
+          payload: motd,
+          from: { name: NAME, id: -1 },
+          localTs: Date.now(),
+          to: 'global'
+        }));
+      }
+      else {
+        c.send(JSON.stringify({
+          type: 'reconnect',
+          from: { name: NAME, id: -1 },
+          localTs: Date.now(),
+          to: 'global'
+        }));
+      }
 
       if ('connection' in this.onmap) {
         this.onmap.connection(c);
@@ -125,18 +176,18 @@ module.exports = class WsServer {
         try {
           let msgObj = JSON.parse(msgStr);
           msgObj.payload = sanitize(msgObj.payload);
-
-          // don't post empty messages, which may not be empty on the
-          // client end but end up empty after sanitization
-          if (msgObj.payload.length === 0) {
-            return;
-          }
           
           msgObj.rxTs = Date.now();
           msgObj.tsDelta = msgObj.rxTs - msgObj.localTs;
           ++this.rtInfo.counts.messages.rx;
 
           if (msgObj.type === 'chat') {
+            // don't post empty messages, which may not be empty on the
+            // client end but end up empty after sanitization
+            if (msgObj.payload.length === 0) {
+              return;
+            }
+
             let targets = [];
 
             if (msgObj.to === 'global') {
@@ -152,6 +203,17 @@ module.exports = class WsServer {
             if ('chat' in this.onmap) {
               this.onmap.chat(msgObj);
             }
+          } else if (msgObj.type === 'heartbeat') {
+            // TODO: need to have a 'hb killer'; client should send hb cadence
+            // along (maybe just with connect calls? as query string?) and if
+            // they haven't sent heartbeat in N of those periods (config'ed),
+            // will need to close like the pinger does above
+            if (!(wsAvatarId in this.conns)) {
+              this.log(`${ALERT_CHAR} heartbeat from nontracked ${wsAvatarId}!`);
+              this.log(msgStr);
+              return;
+            }
+            this.conns[wsAvatarId].lastHeartbeat = Date.now();
           } else {
             c.rxQueue.push(msgObj);
           }
@@ -162,32 +224,65 @@ module.exports = class WsServer {
         };
       });
 
-      c.on('close', () => {
-        this.log(`closing ws to ${wsAvatarId}`);
-        delete this.conns[wsAvatarId];
+      c.on('close', (e) => {
+        this.log(`closing ws to ${wsAvatarId} ${this.conns[wsAvatarId]} ${e}`);
+        if (wsAvatarId in this.conns) {
+          if ('lastHeartbeat' in this.conns[wsAvatarId]) {
+            this.log(`last heartbeat delta: ${Date.now() - this.conns[wsAvatarId].lastHeartbeat}`);
+          } else {
+            this.log(`no last heartbeat - ${WARN_CHAR} zombie!`);
+          }
+          this.conns[wsAvatarId].closeReason = e;
+          //delete this.conns[wsAvatarId];
+        }
+      });
+
+      c.on('ping', (data) => {
+        this.log(`${WARN_CHAR} PING? ${wsAvatarId}`);
+        this.log(data);
+        this.log(typeof data);
+        this.log(`data! ${data.toString()}`);
+        if (wsAvatarId in this.conns) {
+          this.log("we'll count it! ponging back");
+          this.conns[wsAvatarId].pong(data);
+          this.conns[wsAvatarId].waitingOnPong = 0;
+        }
       });
 
       c.on('pong', () => {
+        //this.log(`pong from ${wsAvatarId}`);
         if (!(wsAvatarId in this.conns)) {
           this.log(`${ALERT_CHAR} conn ${wsAvatarId} ponged but is not in conns list!!`);
           return;
         }
 
         if (!this.conns[wsAvatarId].waitingOnPong) {
-          this.log(`conn ${wsAvatarId} ponged without wait!`);
+          this.log(`${ALERT_CHAR} conn ${wsAvatarId} ponged without wait!`);
           return;
         }
-        this.conns[wsAvatarId].waitingOnPong = false;
+
+        this.conns[wsAvatarId].waitingOnPong = 0;
+      });
+
+      c.on('error', (err) => {
+        this.log(`${ALERT_CHAR} ws ${wsAvatarId} err!`);
+        this.log(err);
+      });
+
+      c.on('unexpected-response', (req, resp) => {
+        this.log(`${WARN_CHAR} ws ${wsAvatarId} u-r!`);
+        this.log(req);
+        this.log(resp);
       });
     } else {
       err = 'BAD ACTOR';
-      c.close();
+      c.terminate();
     }
 
     if (err) {
       ++this.rtInfo.counts.connections.bad;
       this.log(`ws connection error: ${err}`);
-      c.close();
+      c.terminate();
     }
   }
 };

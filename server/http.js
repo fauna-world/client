@@ -119,7 +119,8 @@ const main = async (fullInitCb) => {
     config.redis.url = process.env[redisEnv[1]];
   }
 
-  config.redis.prefix = `${NAME.toLowerCase()}-${VERSION}`;
+  const cacheEnv = process.env.NODE_ENV || 'prod';
+  config.redis.prefix = `${NAME.toLowerCase()}-${cacheEnv}`;
 
   engine = new Engine({ logger: log, ...config.redis });
   await engine.init();
