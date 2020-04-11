@@ -5,7 +5,7 @@
     "wsPingFreq": 11,
     "bind": "localhost",
     "log": "http.log",
-    "clientSite": "../client"
+    "clientSite": null
   },
   "redis": {
     "url": "env:REDIS_URL"
