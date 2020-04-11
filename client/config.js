@@ -16,10 +16,19 @@ const config = {
     yoff: 0, 
     ss: 75, 
     scrollStep: 1, 
-    chatHist: 10
+    chatHist: 10,
+    boxSelectBorderColor: [0, 255, 255]
   },
   uiMultipliers: {
     width: 0.55,
     height: 0.7
-  }
+  },
+  preloadImages: [
+    'bluebird.png',
+    'butterfly.png',
+    'crow.png',
+    'hummingbird.png',
+    'morningdove.png',
+    'sparrow.png'
+  ]
 };

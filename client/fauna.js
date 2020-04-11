@@ -15,6 +15,24 @@ let avatarId;
 let avatar;
 let speciesSpec;
 let gameMeta;
+let avatarLoc = { cur: undefined, prev: undefined };
+let preloads = {};
+let mapLocs = {};
+
+const _hiliteCell = (origFill, hiliteFactor = 1.05) => origFill.map(x => x * hiliteFactor);
+const _loliteCell = (origFill, hiliteFactor = 1.15) => origFill.map(x => x / hiliteFactor);
+const _tintCell = (origFill, tintArr) => origFill.map((x, i) => x + tintArr[i]);
+
+const _grayCell = (origFill) => {
+  let avg = origFill.reduce((a, x) => a + x, 0) / origFill.length;
+  return [avg, avg, avg];
+}
+
+const _borderCell = (origFill, borderColor = [255, 0, 0], borderWidth = 1) => {
+  strokeWeight(borderWidth);
+  stroke(borderColor);
+  return origFill;
+};
 
 if (location.search) {
   qs = location.search.replace('?', '').split('&').map(x => x.split('=')).reduce((a, x) => { 
@@ -111,11 +129,77 @@ const render = () => {
 
     for (let y = 0; y < rd.h; y++) {
       curMap[x][y] = ourNoise(x, y);
-      fill(...colorXform(curMap[x][y]));
-      rect(x * dims.res, y * dims.res, dims.res, dims.res);
+      let mapCoords = [x - dims.xoff, y - dims.yoff];
+      let mapCoordStr = `${mapCoords[0]},${mapCoords[1]}`;
+      let fillObj = colorXform(curMap[x][y]);
+
+      if (mapCoordStr in mapLocs) {
+        let luFill = mapLocs[mapCoordStr];
+        fillObj = typeof luFill === 'function' ? luFill(mapCoords, fillObj) : luFill;
+      }
+
+      let properDims = [x * dims.res, y * dims.res, dims.res, dims.res];
+
+      if (Array.isArray(fillObj)) {
+        fill(...fillObj);
+        rect(...properDims);
+      } else if (typeof fillObj === 'object') {
+        image(fillObj, ...properDims);
+      } else {
+        throw new Error(`unknown fill obj! ${properDims}`);
+      }
+
+      noStroke();
     }
   }
 };
+
+const setAvatarLoc = (x, y) => {
+  const newLoc = `${x},${y}`;
+
+  if (avatarLoc.prev) {
+    mapLocs[avatarLoc.prev.loc] = avatarLoc.prev.fill;
+  }
+
+  if (newLoc in mapLocs) {
+    avatarLoc.prev = {
+      loc: newLoc,
+      fill: mapLocs[newLoc]
+    };
+  }
+
+  mapLocs[newLoc] = preloads[`${avatar.species}.png`];
+  render();
+}
+
+let _lastSelLoc;
+let _origCellFill;
+const setSelectedLocation = (x, y) => {
+  const newLoc = `${x},${y}`;
+
+  if (_lastSelLoc) {
+    if (_origCellFill) {
+      mapLocs[_lastSelLoc] = _origCellFill;
+      _origCellFill = null;
+    } else {
+      delete mapLocs[_lastSelLoc];
+    }
+  } else if (newLoc === _lastSelLoc) {
+    return;
+  }
+
+  const renderFunc = (_, origFill) => _borderCell(origFill, config.uiDefaults.boxSelectBorderColor);
+
+  if (newLoc in mapLocs) {
+    _origCellFill = mapLocs[newLoc];
+    mapLocs[newLoc] = renderFunc.bind(null, null, _origCellFill);
+  } else {
+    mapLocs[newLoc] = renderFunc;
+  }
+
+  _lastSelLoc = newLoc;
+  render();
+}
 
 const updateChatBox = () => {
   const rxTimeStr = (m) => {
@@ -163,7 +247,7 @@ const allow_pos = (v) => v > 0;
 const ins = {
   xoff: gs.bind(null, 'xoff', allow_any, null),
   yoff: gs.bind(null, 'yoff', allow_any, null),
-  res: gs.bind(null, 'res', (v) => v >= 4 && (v % 2) === 0, null),
+  res: gs.bind(null, 'res', (v) => v >= 6 && (v % 2) === 0, null),
   scroll: gs.bind(null, 'ss', allow_pos, null),
   scrollStep: gs.bind(null, 'scrollStep', allow_pos, null),
   seed: gs.bind(null, 'seed', allow_any, null),
@@ -260,9 +344,10 @@ async function loadAvatar() {
   }
 
   let avbox = select('#avbox');
+  let imgFileName = `${avatar.species}.png`;
 
   avbox.html(`<a href='${persistUrl(true)}'>` +
-    `<img src='assets/${avatar.species}.png' class='speciesavatar' /></a>` +
+    `<img src='assets/${imgFileName}' class='speciesavatar' /></a>` +
     `<div class='speciesname'>${avatar.name}</div>`);
 
   avbox.elt.style.display = 'block';
@@ -376,6 +461,10 @@ const addConnectedUx = async () => {
 
   const goBut_d = createElement('div');
   const goButClicked = async () => {
+    // XXX
+    setAvatarLoc(0, 0);
+    // XXX
+
     mapLocked = true;
     goBut_d.elt.style.display = 'none';
     select('body').elt.className = 'go';
@@ -461,13 +550,16 @@ async function mapSetup() {
     const oNoise = ourNoise(xAdj, yAdj);
     const oBg = colorXform(oNoise);
     const oFg = oBg.map(x => 128 - x);
+
+    setSelectedLocation(showX, showY);
+
     console.log(`r:${dims.res} s:${dims.scale} o:(${dims.xoff}, ${dims.yoff}) -- ` +
       `(${mouseX}, ${mouseY}) (${xAdj}, ${yAdj}) (${showX}, ${showY}) -> ` + 
       `${oNoise} ${noise(showX * dims.scale, showY * dims.scale)}`);
     infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
     infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
     infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
-    infBox.html(`<i>loading <b>(${showX},${showY})</b>...</i>`)
+    infBox.html(`<i>loading <b>(${showX},${showY})</b>...</i>`);
 
     const loadBlock = async (worldId, showX, showY) => {
       let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
@@ -629,6 +721,18 @@ async function userPrompt() {
     sbox.html(shtml);
   } else {
     await mapSetup();
+  }
+}
+
+function preload() {
+  if (config.preloadImages.length) {
+    console.log(`preloading ${config.preloadImages.length} images:`);
+    config.preloadImages.forEach(asset => {
+      loadImage(`assets/${asset}`, (loadedImg) => {
+        preloads[asset] = loadedImg;
+        console.log(`loaded ${asset}`);
+      })
+    });
   }
 }
 
