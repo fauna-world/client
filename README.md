@@ -1,8 +1,10 @@
 # Fauna
 
-What started as a simple, COVID-19-lockdown-boredom-induced experiment into [perlin noise](https://en.wikipedia.org/wiki/Perlin_noise) with [p5.js](https://p5js.org/) rapidly & uncontrollably morphed into... whatever _this_ is.
+What started as a simple, COVID-19-lockdown-boredom-induced experiment into [perlin noise](https://en.wikipedia.org/wiki/Perlin_noise)
+with [p5.js](https://p5js.org/) rapidly & uncontrollably morphed into... whatever _this_ is.
 
-Probably easiest to call it 'a rudimentary 2D browser-based game engine without a game', at this point. There are grand plans for it, of course. Will they materialize? Only time will tell...
+Probably easiest to call it 'a rudimentary 2D browser-based game engine without a game', at this point. 
+There are grand plans for it, of course. Will they materialize? Only time will tell...
 
 Technical notes:
 * 'infinite' worlds, each world 'infinitely'-sized and every block has the capability to persist
