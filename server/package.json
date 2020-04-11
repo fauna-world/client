@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node index.js"
   },
+  "engines": {
+    "node": ">=0.12"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
