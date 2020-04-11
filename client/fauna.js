@@ -117,11 +117,17 @@ const render = () => {
   }
 };
 
-const updateChatBox = () => select('#chatmain').html(
-  chatLog.slice(-dims.chatHist).map(x => `&lt;<b>` + 
+const updateChatBox = () => {
+  const rxTimeStr = (m) => {
+    const _ps = (s) => String(s).padStart(2, '0');
+    return `${_ps(m.rxTime.getHours())}:${_ps(m.rxTime.getMinutes())}:${_ps(m.rxTime.getSeconds())}`;
+  };
+  
+  select('#chatmain').html(chatLog
+    .slice(-dims.chatHist).map(x => `[${rxTimeStr(x)}] &lt;<b>` + 
     (x.from.species ? `<img src='assets/${x.from.species}.png' class='chatimg'/>` : '') + 
-    `${x.from.name}</b>&gt; ${x.payload}`).join('<br/>')
-);
+    `${x.from.name}</b>&gt; ${x.payload}`).join('<br/>'));
+};
 
 const gs = (key, allow, cb, val) => {
   if (val !== undefined) {
@@ -315,6 +321,7 @@ async function loadMessaging(reconnect = false) {
       let msgObj = JSON.parse(event.data);
 
       if (msgObj.type === 'chat') {
+        msgObj.rxTime = new Date();
         chatLog.push(msgObj);
         updateChatBox();
       } else if (msgObj.type === 'gametime') {
@@ -331,6 +338,13 @@ async function loadMessaging(reconnect = false) {
     }
   });
 
+  const showReconnDisp = () => {
+    sendTxt.elt.disabled = true;
+    sendTxt.value('reconnecting...');
+    sendBut.elt.disabled = true;
+    select('#gameclock').html('???');
+  };
+
   wsConn.addEventListener('close', (ev) => {
     clearTimeout(lm_handle);
     let waitMs = 1 * ((lm_backoff + 1) ** 2);
@@ -338,16 +352,15 @@ async function loadMessaging(reconnect = false) {
     if (ev.code !== 1006 && ev.code !== 1001) {
       console.log(ev);
     }
-    sendTxt.elt.disabled = true;
-    sendTxt.value('reconnecting...');
-    sendBut.elt.disabled = true;
-    select('#gameclock').html('???');
+
+    showReconnDisp();
     setTimeout(loadMessaging.bind(null, true), waitMs);
   });
 
   wsConn.addEventListener('error', (err) => {
     console.log(`ws err!`);
     console.log(err);
+    showReconnDisp();
   });
 
   window.onclose = () => {
