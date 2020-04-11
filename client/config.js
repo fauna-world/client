@@ -1,6 +1,8 @@
+const isLocal = location.hostname === 'localhost';
+
 const config = {
-  host: 'http://api.fauna.computerpho.be',
-  msgHost: 'ws://ws.api.fauna.computerpho.be',
+  host: isLocal ? 'http://localhost:14024' : 'http://api.fauna.computerpho.be',
+  msgHost: isLocal ? 'ws://localhost:14025' : 'ws://ws.api.fauna.computerpho.be',
   cookieName: 'faunaAvatar',
   heartbeat: 3,
   uiDefaults: {
