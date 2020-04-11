@@ -1,8 +1,8 @@
 const fs = require('fs');
+const path = require('path');
 const config = require('config');
 const fastify = require('fastify');
 const faker = require('faker');
-const url = require('url');
 const uuid = require('uuid').v4;
 const app = fastify();
 
@@ -49,6 +49,7 @@ let serverStartTime;
 
 let wsServer;
 let engine;
+let staticRouteCache = {};
 
 const pauseConsoleLogging = () => { loggingEnabled = false; };
 
@@ -189,8 +190,78 @@ const main = async (fullInitCb) => {
     wsServer.start();
   });
 
-  app.get('/', async (req, reply) => {
-    logReq(req, '/');
+  if (config.http.clientSite && fs.existsSync(config.http.clientSite)) {
+    const mimeTypes = {
+      '.png': 'image/png',
+      '.css': 'text/css',
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'text/javascript'
+    };
+
+    const serveStaticAsset = (routePath, fullPath) => {
+      const _fill = (routePath, fullPath) => {
+        log(`filling static cache with ${fullPath} for key '${routePath}'`);
+        staticRouteCache[routePath] = { 
+          mtime: fs.statSync(fullPath).mtime,
+          data: fs.readFileSync(fullPath)
+        };
+      };
+
+      if (!(routePath in staticRouteCache)) {
+        _fill(routePath, fullPath);
+      } else {
+        let curMtime = fs.statSync(fullPath).mtime;
+        if (curMtime > staticRouteCache[routePath].mtime) {
+          log(`${routePath} has been updated:`);
+          log(`\t${curMtime} > ${staticRouteCache[routePath].mtime}`);
+          _fill(routePath, fullPath);
+        }
+      }
+
+      return staticRouteCache[routePath].data;
+    };
+
+    const setupRoutesForDir = (dir, rPfx) => {
+      let dirRes = path.resolve(dir);
+      let openDir = fs.opendirSync(dirRes);
+      let dirEnt;
+
+      while ((dirEnt = openDir.readSync()) !== null) {
+        let resolved = path.resolve(`${dirRes}/${dirEnt.name}`);
+        if (dirEnt.isDirectory()) {
+          setupRoutesForDir(resolved, dirEnt.name);
+        } else {
+          let routePath = '/' + (rPfx ? `${rPfx}/` : '') + dirEnt.name;
+          let isIndex = dirEnt.name === 'index.html';
+          let mime = mimeTypes[path.extname(resolved)];
+          log(`Routed${(isIndex ? ' as index' : '')}: GET ${routePath} -> ${resolved} ('${mime}')`);
+
+          const routeResponder = async (req, reply) => {
+            logReq(req, routePath);
+            reply
+              .code(200)
+              .header('Content-Type', mime)
+              .send(serveStaticAsset(routePath, resolved));
+          };
+
+          app.get(routePath, routeResponder);
+
+          if (isIndex) {
+            app.get('/', routeResponder);
+          }
+        }
+      }
+
+      openDir.closeSync();
+    };
+
+    let cfgResolved = path.resolve(`${__dirname}/${config.http.clientSite}`);
+    log(`Routing static client site from ${cfgResolved}:`);
+    setupRoutesForDir(cfgResolved);
+  }
+
+  app.get('/ping', async (req, reply) => {
+    logReq(req, '/ping');
     return VERSION;
   });
 

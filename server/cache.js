@@ -14,7 +14,7 @@ module.exports = class Cache {
       this.r = new Redis(this.url);
       let keys = await this.r.keys(`${this.prefix}*`);
       this.log(`Connected to redis://${this.r.options.host}:${this.r.options.port}; ` + 
-        `${keys.length} keys; up ${this.r.serverInfo.uptime_in_days} days`);
+        `'${this.prefix}*' has ${keys.length} keys; up ${this.r.serverInfo.uptime_in_days} days`);
     } catch(err) {
       this.log('redis connection failed: ' + err);
       throw err;

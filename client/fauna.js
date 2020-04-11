@@ -54,7 +54,7 @@ const faunaFetch = async (stub, body) => {
 
 const apiCheck = async () => {
   try {
-    let res = await fetch(config.host);
+    let res = await fetch(`${config.host}/ping`);
     let text = await res.text();
     if (text.match(/^[\d\.]+$/) !== null) {
       let sRes = await faunaFetch('species');

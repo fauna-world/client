@@ -4,7 +4,8 @@
     "wsPort": 14025,
     "wsPingFreq": 11,
     "bind": "localhost",
-    "log": "http.log"
+    "log": "http.log",
+    "clientSite": "../client"
   },
   "redis": {
     "url": "env:REDIS_URL"
