@@ -361,8 +361,7 @@ const main = async (fullInitCb) => {
   app.post('/avatar', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/avatar');
-    retVal.avatarId = uuid();
-    engine.avatars(retVal.avatarId, sanitize(req.body, config.app.avatarNameLengthLimit));
+    retVal.avatarId = await engine.avatars(null, sanitize(req.body, config.app.avatarNameLengthLimit));
     return retVal;
   });
 

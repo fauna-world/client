@@ -1,5 +1,6 @@
 const config = require('config');
 const moment = require('moment');
+const uuid = require('uuid').v4;
 const Cache = require('./cache');
 
 const INITIAL_GAMETIME = moment(0).subtract(1969, 'years');
@@ -15,7 +16,7 @@ module.exports = class Engine {
     this.gameTime = INITIAL_GAMETIME;
 
     this._olog = this.log;
-    this.log = (str) => this._olog(`[ENGINE] ${str}`);
+    this.log = (str) => this._olog(`${(new Date).toISOString()} [ENG] ${str}`);
     
     this.run = true;
   }
@@ -59,9 +60,24 @@ module.exports = class Engine {
     return this.writeOps.push(opFunc);
   }
 
+  async submitPromisedWriteOpReturningId(newIdOrNull, newEntity, properOp) {
+    // TODO: this should be in the cache! these are 'returning id' funcs...
+    if (newIdOrNull === null) {
+      newIdOrNull = uuid();
+    }
+
+    return new Promise((resolve) => {
+      this.submitWriteOp(async () => { 
+        let newRetId = await properOp(newIdOrNull, newEntity);
+        resolve(newRetId);
+      })
+    });
+  }
+
   async worlds(worldId, newWorld) {
     if (newWorld) {
-      return this.submitWriteOp(() => this.cache.worlds(worldId, newWorld));
+      return this.submitPromisedWriteOpReturningId(worldId, newWorld, 
+        this.cache.worlds.bind(this.cache));
     }
 
     return this.cache.worlds(worldId);
@@ -69,7 +85,8 @@ module.exports = class Engine {
 
   async avatars(avatarId, newAvatar) {
     if (newAvatar) {
-      return this.submitWriteOp(() => this.cache.avatars(avatarId, newAvatar));
+      return this.submitPromisedWriteOpReturningId(avatarId, newAvatar, 
+        this.cache.avatars.bind(this.cache));
     }
 
     return this.cache.avatars(avatarId);

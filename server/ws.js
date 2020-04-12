@@ -31,7 +31,7 @@ module.exports = class WsServer {
     this.olog = this.log
     this.log = (str, req) => {
       if (req) return this.olog(str, req);
-      this.olog(`[WS] ${(new Date).toISOString()} ${(typeof str === 'object' ? JSON.stringify(str) : str)}`);
+      this.olog(`${(new Date).toISOString()} [WSS] ${(typeof str === 'object' ? JSON.stringify(str) : str)}`);
     };
 
     this.onmap = {};
