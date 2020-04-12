@@ -145,6 +145,8 @@ const render = () => {
         fill(...fillObj);
         rect(...properDims);
       } else if (typeof fillObj === 'object') {
+        fill(255, 255, 255, 255);
+        rect(...properDims);
         image(fillObj, ...properDims);
       } else {
         throw new Error(`unknown fill obj! ${properDims}`);
@@ -155,6 +157,9 @@ const render = () => {
   }
 };
 
+let _lastSelLoc;
+let _origCellFill;
+
 const setAvatarLoc = (x, y) => {
   const newLoc = `${x},${y}`;
 
@@ -162,19 +167,20 @@ const setAvatarLoc = (x, y) => {
     mapLocs[avatarLoc.prev.loc] = avatarLoc.prev.fill;
   }
 
-  if (newLoc in mapLocs) {
+  if (newLoc in mapLocs && newLoc !== _lastSelLoc) {
     avatarLoc.prev = {
       loc: newLoc,
       fill: mapLocs[newLoc]
     };
   }
 
+  avatarLoc.cur = newLoc;
   mapLocs[newLoc] = preloads[`${avatar.species}.png`];
+  select('#avatarLoc').html(`@ <b>(${x}, ${y})</b>`);
+  select('#avatarLoc').style('display', 'block');
   render();
 }
 
-let _lastSelLoc;
-let _origCellFill;
 const setSelectedLocation = (x, y) => {
   const newLoc = `${x},${y}`;
 
@@ -182,7 +188,7 @@ const setSelectedLocation = (x, y) => {
     if (_origCellFill) {
       mapLocs[_lastSelLoc] = _origCellFill;
       _origCellFill = null;
-    } else {
+    } else if (typeof mapLocs[_lastSelLoc] === 'function') {
       delete mapLocs[_lastSelLoc];
     }
   } else if (newLoc === _lastSelLoc) {
@@ -353,7 +359,8 @@ async function loadAvatar() {
 
   avbox.html(`<a href='${persistUrl(true)}'>` +
     `<img src='assets/${imgFileName}' class='speciesavatar' /></a>` +
-    `<div class='speciesname'>${avatar.name}</div>`);
+    `<div class='speciesname'>${avatar.name}</div>` + 
+    '<div id="avatarLoc" class="dispnone"></div>');
 
   avbox.elt.style.display = 'block';
 }
@@ -475,15 +482,12 @@ async function loadMessaging(reconnect = false) {
 const addConnectedUx = async () => {
   let worldBanner_d = createElement('div');
   let worldBanner = createElement('h2');
+  worldBanner.elt.id = 'welcomesign';
   worldBanner.parent(worldBanner_d);
   worldBanner.elt.style.display = 'none';
 
   const goBut_d = createElement('div');
   const goButClicked = async () => {
-    // XXX
-    setAvatarLoc(0, 0);
-    // XXX
-
     mapLocked = true;
     goBut_d.elt.style.display = 'none';
     select('body').elt.className = 'go';
@@ -503,7 +507,7 @@ const addConnectedUx = async () => {
       `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
       `<br/><span style='font-size: 65%;'>(<a href='http://${location.hostname}/'>reset</a>)</span>`);
     worldBanner.elt.style.display = 'block';
-    select('#howbox').elt.style.display = 'none';
+    select('#howbox').html("arrow keys scroll, square brackets zoom");
     if (jres.isNew) {
       worldBanner.elt.style.fontStyle = 'oblique';
     }
@@ -592,6 +596,19 @@ async function mapSetup() {
       infBox.html(`<b>(${showX}, ${showY})</b> is <b>${res.block.type}</b> ` + 
         `<br/>with <b>${res.block.count}</b> visitors` + 
         (res.block.inventory.length ? ` &amp; <b>${res.block.inventory.length}</b> items!` : '') + '<br/><br/>');
+
+
+      if (!avatarLoc.cur) {
+        let startBut = createElement('input');
+        startBut.parent(infBox);
+        startBut.elt.id = 'beginbut';
+        startBut.elt.type = 'submit';
+        startBut.elt.value = 'Begin the journey here!';
+        startBut.elt.onclick = () => {
+          startBut.elt.parentNode.removeChild(startBut.elt);
+          setAvatarLoc(showX, showY);
+        };
+      }
 
       let notesCount = res.block.inventory.reduce((a, x) => a += x.type === 'note' ? 1 : 0, 0);
       let notesAdded = 0;
@@ -683,8 +700,9 @@ async function speciesSelect(speciesKey) {
   namebox.value(firstname.firstname);
   createElement('br').parent(sbox);
 
-  let setname = createInput('Go', 'submit');
+  let setname = createInput('Take Flight!', 'submit');
   setname.parent(sbox);
+  setname.elt.id = 'namebox_go';
   setname.elt.style.width = '30%';
   setname.elt.onclick = async () => {
     let avatarRes = await faunaFetch(`avatar`, { 
@@ -700,7 +718,7 @@ async function speciesSelect(speciesKey) {
   };
 
   createElement('br').parent(sbox);
-  sbox.elt.style.padding = '5%';
+  sbox.elt.style.padding = '3%';
   sbox.elt.style.display = 'block';
 
   return true;
@@ -735,18 +753,24 @@ async function userPrompt() {
 
     let sbox = select('#speciesbox');
     let shtml = '<table id="speciestable"><tr>';
+    let cellCount = 0;
     Object.keys(speciesSpec).forEach(sKey => {
       const sspec = speciesSpec[sKey];
-      shtml += `<td><a href='#' onclick='speciesSelect("${sKey}");'>` + 
+      shtml += `<td class='speciescell'><a href='#' onclick='speciesSelect("${sKey}");'>` + 
         `<img src='assets/${sKey}.png' class='speciesavatar' /></a><br/>`;
       shtml += `<span class='speciesname'>${sspec.displayName}</span><br/>`;
-      shtml += '<div class="speciesstats">'
+      shtml += '<div class="speciesstats">';
+      shtml += '<table class="speciesstats_table">';
       Object.keys(sspec.stats).forEach(statKey => {
         let sCCls = `statclr_${sspec.stats[statKey]}`;
-        shtml += `<i>${statKey}</i>: <span class='statclr ${sCCls}'>` + 
-          `${sspec.stats[statKey]}</span><br/>`;
+
+        shtml += `<tr><td>${statKey}</td><td class='statclr_cell'>` + 
+          `<span class='statclr ${sCCls}'>${sspec.stats[statKey]}</span></td></tr>`;
       });
-      shtml += '</div></td>';
+      shtml += '</table></div></td>';
+      if (!(++cellCount % 3)) {
+        shtml += '</td></tr><tr><td colspan="3"><br/></td></tr><tr>';
+      }
     });
     shtml += '</tr></table>';
     sbox.html(shtml);

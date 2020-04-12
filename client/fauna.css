@@ -112,8 +112,21 @@ input:disabled {
   border-radius: 8px;
 }
 
+.p5Canvas {
+  border-radius: 4px;
+}
+
 #p5_loading {
   padding: 15px;
+}
+
+#welcomesign {
+  margin-top: 15px;
+}
+
+#beginbut {
+  width: 220px;
+  margin-bottom: 20px;
 }
 
 #avbox {
@@ -122,6 +135,12 @@ input:disabled {
   left: 10px;
   padding: 15px;
   border-radius: 8px;
+}
+
+#avatarLoc {
+  margin-top: 5px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
 }
 
 #userbox {
@@ -135,8 +154,17 @@ h3 {
   text-decoration: underline;
 }
 
+#ub_new {
+  padding-top: 10px;
+  padding-bottom: 15px;
+}
+
 #speciestable {
   width: 100%;
+}
+
+.speciescell {
+  padding: 5px;
 }
 
 #specieshdr {
@@ -148,6 +176,7 @@ h3 {
   height: 96px;
   border: 1px solid #556677;
   border-radius: 4px;
+  margin: 4px;
 }
 
 .speciesname {
@@ -157,11 +186,35 @@ h3 {
 
 .speciesstats {
   text-align: left;
-  padding: 15px;
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
+  background-color: #556677;
+  border: 1px dotted #ccddee;
+}
+
+.speciesstats_table {
+  width: 100%;
 }
 
 .statclr {
   font-weight: bolder;
+  margin-left: 10px;
+}
+
+.statclr_cell {
+  text-align: right;
+}
+
+#namebox {
+  background-color: #e9cd99;
+  color: #001122;
+  margin: 20px;
+}
+
+#namebox_go {
+  background-color: #334455;
+  padding: 8px 4px 5px 4px;;
 }
 
 .chatimg {
@@ -180,6 +233,17 @@ h3 {
 .statclr_8 { color: rgb(0, 231, 116); }
 .statclr_9 { color: rgb(0, 231, 162); }
 .statclr_10 { color: rgb(0, 231, 219); }
+
+.bg_statclr_1 { background-color: rgb(255, 0, 55); }
+.bg_statclr_2 { background-color: rgb(255, 0, 0); }
+.bg_statclr_3 { background-color: rgb(255, 94, 0); }
+.bg_statclr_4 { background-color: rgb(255, 145, 0); }
+.bg_statclr_5 { background-color: rgb(231, 216, 0); }
+.bg_statclr_6 { background-color: rgb(169, 231, 0); }
+.bg_statclr_7 { background-color: rgb(65, 231, 0); }
+.bg_statclr_8 { background-color: rgb(0, 231, 116); }
+.bg_statclr_9 { background-color: rgb(0, 231, 162); }
+.bg_statclr_10 { background-color: rgb(0, 231, 219); }
 
 
 .invitem-small {

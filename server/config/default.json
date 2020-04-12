@@ -44,10 +44,7 @@
         "stats": {
           "agility": 10,
           "longevity": 3,
-          "acuity": 5,
-          "tenacity": 8,
-          "mobility": 8,
-          "tranquility": 1
+          "mobility": 8
         }
       },
       "morningdove": {
@@ -55,10 +52,7 @@
         "stats": {
           "agility": 4,
           "longevity": 10,
-          "acuity": 2,
-          "tenacity": 5,
-          "mobility": 4,
-          "tranquility": 10
+          "mobility": 4
         }
       },
       "bluebird": {
@@ -66,10 +60,7 @@
         "stats": {
           "agility": 5,
           "longevity": 9,
-          "acuity": 3,
-          "tenacity": 9,
-          "mobility": 7,
-          "tranquility": 3
+          "mobility": 7
         }
       },
       "butterfly": {
@@ -77,10 +68,7 @@
         "stats": {
           "agility": 9,
           "longevity": 1,
-          "acuity": 1,
-          "tenacity": 5,
-          "mobility": 10,
-          "tranquility": 8
+          "mobility": 10
         }
       },
       "sparrow": {
@@ -88,10 +76,7 @@
         "stats": {
           "agility": 7,
           "longevity": 3,
-          "acuity": 5,
-          "tenacity": 10,
-          "mobility": 5,
-          "tranquility": 3
+          "mobility": 5
         }
       },
       "crow": {
@@ -99,10 +84,7 @@
         "stats": {
           "agility": 3,
           "longevity": 8,
-          "acuity": 10,
-          "tenacity": 9,
-          "mobility": 2,
-          "tranquility": 2
+          "mobility": 2
         }
       }
     }
