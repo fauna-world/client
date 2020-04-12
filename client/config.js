@@ -19,7 +19,7 @@ const config = {
     ss: 75, 
     scrollStep: 1, 
     chatHist: 10,
-    boxSelectBorderColor: [0, 255, 255]
+    boxSelectBorderColor: [255, 255, 0]
   },
   uiMultipliers: {
     width: 0.45,

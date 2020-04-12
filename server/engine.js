@@ -15,8 +15,11 @@ module.exports = class Engine {
     this.gameEpoch = 0;
     this.gameTime = INITIAL_GAMETIME;
 
-    this._olog = this.log;
-    this.log = (str) => this._olog(`${(new Date).toISOString()} [ENG] ${str}`);
+    this.olog = this.log
+    this.log = (str, req) => {
+      if (req) return this.olog(str, req);
+      this.olog(`${(new Date).toISOString()} [ENG] ${(typeof str === 'object' ? JSON.stringify(str) : str)}`);
+    };
     
     this.run = true;
   }
@@ -85,11 +88,70 @@ module.exports = class Engine {
 
   async avatars(avatarId, newAvatar) {
     if (newAvatar) {
+      if (!('life' in newAvatar)) {
+        newAvatar.life = config.game.meta.lifeMax;
+      }
+
       return this.submitPromisedWriteOpReturningId(avatarId, newAvatar, 
         this.cache.avatars.bind(this.cache));
     }
 
     return this.cache.avatars(avatarId);
+  }
+
+  async setAvatarLoc(avatarId, worldId, x, y) {
+    let curAvatar = await this.cache.avatars(avatarId);
+    let world = await this.cache.worlds(worldId);
+    let retVal = { success: false };
+
+    if (curAvatar && world) {
+      let moveAllowed = false;
+
+      if (curAvatar.loc) {
+        if (curAvatar.loc.worldId !== worldId) {
+          throw new Error('trying to move worlds!');
+        }
+
+        this.log(`cur=(${curAvatar.loc.x}, ${curAvatar.loc.y}) new=(${x}, ${y})`);
+        const sMax = config.game.meta.statMax;
+        const sstats = config.game.species[curAvatar.species].stats;
+        // get MANHATTAN? (pythag?) distance, weighted by mobility
+        const manhattan = Math.abs(x - curAvatar.loc.x) + Math.abs(y - curAvatar.loc.y);
+        const effectiveMh = manhattan * (2 - (1 / (sMax / sstats.mobility)));
+        const ceilEffMh = Math.ceil(effectiveMh)
+        this.log(`mobility=${sstats.mobility} manhattan=${manhattan} effectiveMh=${ceilEffMh}(${effectiveMh})`);
+
+
+        // should there be seasonal movement variation?
+
+        // penalize crossing terrian gradient, weighted by agility
+        //    this is hard! if pythag: how do we know which blocks are crossed?
+        //    if manhattan, how do we allow users to select route? do we?
+        //    could try to use stddev of all blocks transited as easy measure of
+        //    agility cost, but even then must know *which* blocks to incl in stddev!
+        //  may not really need this at all, as can use the terrian gradient
+        //  instead for diff mechanic (seasonal variation)
+
+        // if 'movement allowed remaining' > above calc'ed score; allow move
+        if (curAvatar.life >= ceilEffMh) {
+          this.log(`CAN DO! ${curAvatar.life} >= ${ceilEffMh}`);
+          moveAllowed = true;
+          curAvatar.life -= ceilEffMh;
+        }
+      } else {
+        moveAllowed = true;
+      }
+
+      if (moveAllowed) {
+        curAvatar.loc = { worldId, x, y };
+        await this.avatars(avatarId, curAvatar);
+        retVal.avatar = curAvatar;
+        retVal.block = await world.grid(x, y, null, true);
+        retVal.success = true;
+      }
+    }
+
+    return retVal;
   }
 
   logChatMsg(msgObj) {

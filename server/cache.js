@@ -1,3 +1,4 @@
+const config = require('config');
 const Redis = require('ioredis');
 
 module.exports = class Cache {
@@ -6,6 +7,13 @@ module.exports = class Cache {
     this.prefix = opts.prefix;
     this.engine = opts.engine;
     this.log = opts.logger || console.log;
+
+    this.olog = this.log
+    this.log = (str, req) => {
+      if (req) return this.olog(str, req);
+      this.olog(`${(new Date).toISOString()} [CCH] ${(typeof str === 'object' ? JSON.stringify(str) : str)}`);
+    };
+
     this.r = null;
   }
 
@@ -36,7 +44,7 @@ module.exports = class Cache {
       return JSON.parse(await this.r.hget(key, avatarId));
     }
 
-    this.log(`new avatar ${avatarId}:`);
+    this.log(`writing avatar ${avatarId}:`);
     this.log(newAvatar);
 
     await this.r.hset(key, avatarId, JSON.stringify(newAvatar));
@@ -46,17 +54,32 @@ module.exports = class Cache {
   async worlds(worldId, newWorld) {
     const key = `${this.prefix}:worlds`;
 
-    const gridGetSet = async (ggsWorldId, x, y, nObj) => {
+    const gridGetSet = async (ggsWorldId, x, y, nObj, hasPlayerPresence = false) => {
       let gKey = `${this.prefix}:grid:${ggsWorldId}`;
       let gField = `${x}:${y}`;
       let countKey = gField + ':count';
 
+      if (hasPlayerPresence) {
+        // XXX TODO: this should be in the engine too! ugh
+        // player presence is required to generate new items, so do that here
+        // remember: seasonal boosts depending on block type! (check notes!)
+      }
+
       if (nObj) {
         // XXX TODO: this whole thing should be in the engine itself!
-        return this.engine.submitWriteOp(() => {
+        // also, the following effectively 'hardcodes' terrian type
+        // into the block object, and that's ultimately because this deferred
+        // write ... really need to fix that.
+        let bTypes = config.game.block.types;
+        nObj.type = bTypes[Object.keys(bTypes).sort()
+            .find(bk => Number.parseFloat(bk) >= nObj.n)];
+
+        this.engine.submitWriteOp(() => {
           this.r.hset(gKey, gField, JSON.stringify(nObj));
           this.r.hset(gKey, countKey, 1);
         });
+
+        return nObj.type;
       }
 
       let retVal = JSON.parse((await this.r.hget(gKey, gField)));
@@ -100,7 +123,7 @@ module.exports = class Cache {
       return null;
     }
 
-    this.log(`new world ${worldId}:`);
+    this.log(`writing world ${worldId}:`);
     this.log(newWorld);
 
     return this.r.hset(key, worldId, JSON.stringify(newWorld));

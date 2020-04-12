@@ -286,6 +286,15 @@ const main = async (fullInitCb) => {
     return retVal;
   });
 
+  app.get('/world/:worldId', async (req, reply) => {
+    let retVal = { error: false };
+    logReq(req, '/world/...');
+    if (validWorldId(req.params.worldId)) {
+      retVal.world = await engine.worlds(req.params.worldId);
+    }
+    return retVal;
+  });
+
   app.get('/world/:worldId/block/:x/:y', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/world/../block');
@@ -305,15 +314,11 @@ const main = async (fullInitCb) => {
             inventory: []
           };
 
-          await world.grid(x, y, block);
+          block.type = await world.grid(x, y, block);
           block.count = 1;
         }
 
-        let bTypes = config.game.block.types;
-        retVal.block = Object.assign({}, block, {
-          type: bTypes[Object.keys(bTypes).sort()
-            .find(bk => Number.parseFloat(bk) >= block.n)]
-        });
+        retVal.block = block;
       }
     }
 
@@ -370,6 +375,17 @@ const main = async (fullInitCb) => {
     logReq(req, '/avatar/..');
     if (validUuid(req.params.avatarId)) {
       retVal.avatar = await engine.avatars(req.params.avatarId);
+    }
+    return retVal;
+  });
+
+  app.post('/avatar/:avatarId/loc', async (req, reply) => {
+    let retVal = { error: false };
+    logReq(req, '/avatar/../loc/..');
+    let { avatarId } = req.params;
+    let { worldId, x, y } = req.body;
+    if (validUuid(avatarId) && validWorldId(worldId)) {
+      retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
     }
     return retVal;
   });

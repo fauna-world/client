@@ -46,7 +46,7 @@ input:disabled {
   position: absolute;
   font-family: 'Courier New', Courier, monospace;
   font-size: 11pt;
-  top: 200px;
+  top: 230px;
   left: 10px;
   border-radius: 5px;
 }
@@ -137,7 +137,20 @@ input:disabled {
   border-radius: 8px;
 }
 
-#avatarLoc {
+#avstattable {
+  width: 100%;
+}
+
+.avstatname {
+  text-align: left;
+}
+
+.avstatstat {
+  font-weight: bolder;
+  text-align: right;
+}
+
+#avatarstatsdiv {
   margin-top: 5px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 9pt;

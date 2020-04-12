@@ -36,7 +36,8 @@
       }
     },
     "meta": {
-      "statMax": 10
+      "statMax": 10,
+      "lifeMax": 100
     },
     "species": {
       "hummingbird": {

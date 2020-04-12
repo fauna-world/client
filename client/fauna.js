@@ -95,6 +95,10 @@ Object.keys(dims).forEach(dk => {
   }
 });
 
+if ('worldId' in qs) {
+  worldId = qs.worldId;
+}
+
 const ourNoise = (x, y) => noise(
   (x - dims.xoff) * dims.scale, 
   (y - dims.yoff) * dims.scale
@@ -160,7 +164,7 @@ const render = () => {
 let _lastSelLoc;
 let _origCellFill;
 
-const setAvatarLoc = (x, y) => {
+const setAvatarLoc = async (x, y, uiOnly = false) => {
   const newLoc = `${x},${y}`;
 
   if (avatarLoc.prev) {
@@ -174,11 +178,47 @@ const setAvatarLoc = (x, y) => {
     };
   }
 
-  avatarLoc.cur = newLoc;
-  mapLocs[newLoc] = preloads[`${avatar.species}.png`];
-  select('#avatarLoc').html(`@ <b>(${x}, ${y})</b>`);
-  select('#avatarLoc').style('display', 'block');
-  render();
+  let setBlock
+  if (!uiOnly) {
+    setBlock = await faunaFetch(`avatar/${avatarId}/loc`, { worldId, x, y });
+
+    if (!setBlock.success) {
+      alert('Your energy is not high enough to move this far!');
+      return;
+    }
+  }
+
+  if (uiOnly || (setBlock.block && setBlock.avatar)) {
+    if (avatarLoc.cur) {
+      delete mapLocs[`${avatarLoc.cur.x},${avatarLoc.cur.y}`];
+    }
+
+    if (!uiOnly) {
+      avatar = setBlock.avatar;
+    }
+
+    avatarLoc.cur = { x, y };
+    mapLocs[newLoc] = preloads[`${avatar.species}.png`];
+
+    let statsDiv = select('#avatarstatsdiv');
+    let html = '<table id="avstattable">';
+    html += '<tr><td class="avstatname">Location:</td>';
+    html += `<td class="avstatstat">(${x}, ${y})</td></tr>`;
+    html += `<tr><td class="avstatname">Energy:</td>`;
+    html += `<td class="avstatstat">${avatar.life}</td>`;
+    html += `</tr></table>`;
+    statsDiv.html(html);
+    statsDiv.style('display', 'block');
+
+    render();
+
+    if (avatar.life === 0) {
+      alert('You have died. Better luck next time!\n\nPlease click "OK" to begin anew.');
+      window.location = '/?faunaAvatar=null';
+    }
+
+    return !uiOnly ? setBlock.block : null;
+  }
 }
 
 const setSelectedLocation = (x, y) => {
@@ -330,8 +370,8 @@ function windowResized(evnt) {
 }
 
 const persistAv = () => avatarId ? `${config.cookieName}=${avatarId}` : '';
-const persistQs = () => insLock.map((ik) => `${ik}=${dims[ik]}`).join('&') + '&enterImmediate';
-const persistUrl = (avatar = false) => `http://${location.hostname}/?` + (avatar ? persistAv() : persistQs());
+const persistQs = () => `worldId=${worldId}`;
+const persistUrl = (avatar = false) => `/?` + (avatar ? persistAv() : persistQs());
 
 async function fetchAvatar(avatarId) {
   let avRes = await faunaFetch(`avatar/${avatarId}`);
@@ -360,9 +400,13 @@ async function loadAvatar() {
   avbox.html(`<a href='${persistUrl(true)}'>` +
     `<img src='assets/${imgFileName}' class='speciesavatar' /></a>` +
     `<div class='speciesname'>${avatar.name}</div>` + 
-    '<div id="avatarLoc" class="dispnone"></div>');
+    '<div id="avatarstatsdiv" class="dispnone"></div>');
 
   avbox.elt.style.display = 'block';
+
+  if (avatar.loc) {
+    await setAvatarLoc(avatar.loc.x, avatar.loc.y, true);
+  }
 }
 
 let lm_backoff = 0;
@@ -376,9 +420,9 @@ async function loadMessaging(reconnect = false) {
   let chatbox = select('#chatbox');
   let sendBut = select('#chatsend');
   let sendTxt = select('#chattext');
+  chatbox.style('display', 'block');
 
   wsConn.addEventListener('open', () => {
-    chatbox.style('display', 'block');
     lm_backoff = 0;
     clearTimeout(lm_handle);
     const fromObj = Object.assign({}, avatar, { id: avatarId });
@@ -491,21 +535,51 @@ const addConnectedUx = async () => {
     mapLocked = true;
     goBut_d.elt.style.display = 'none';
     select('body').elt.className = 'go';
-    const wSpec = {};
-    insLock.forEach(inLock => {
-      let e = select('#ins_' + inLock);
-      e.elt.disabled = true;
-      ins[inLock] = null;
-      wSpec[inLock] = e.value();
-    });
 
     select('#chatform').style('display', 'block');
-    let jres = await faunaFetch(`world/enter`, wSpec);
 
-    worldId = jres.worldId;
+    const fetchExtantWorld = async (worldId) => {
+      let jres = await faunaFetch(`world/${worldId}`);
+      if (!jres) {
+        throw new Error('unknown world!');
+      }
+      else {
+        Object.keys(jres.world.params).forEach(dimKey => dims[dimKey] = jres.world.params[dimKey]);
+        console.log(`extant world found '${jres.world.name}' (${worldId})`);
+        render();
+        return jres;
+      }
+    };
+
+    let jres;
+    if (avatar.loc) {
+      worldId = avatar.loc.worldId;
+      dims.xoff = -avatar.loc.x;
+      dims.yoff = -avatar.loc.y;
+      console.log(`avatar found @ (${avatar.loc.x}, ${avatar.loc.y})`);
+      jres = await fetchExtantWorld(worldId);
+    }
+    else {
+      if (!('worldId' in qs)) {
+        const wSpec = {};
+        insLock.forEach(inLock => {
+          let e = select('#ins_' + inLock);
+          e.elt.disabled = true;
+          ins[inLock] = null;
+          wSpec[inLock] = e.value();
+        });
+        jres = await faunaFetch(`world/enter`, wSpec);
+      }
+      else {
+        jres = await fetchExtantWorld(qs.worldId);
+      }
+
+      worldId = jres.worldId;
+    }
+
     worldBanner.html(`Welcome to<br/><span style='font-variant: small-caps'>` + 
       `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
-      `<br/><span style='font-size: 65%;'>(<a href='http://${location.hostname}/'>reset</a>)</span>`);
+      `<br/><span style='font-size: 65%;'>(<a href='/?faunaAvatar=null'>RESET!</a>)</span>`);
     worldBanner.elt.style.display = 'block';
     select('#howbox').html("arrow keys scroll, square brackets zoom");
     if (jres.isNew) {
@@ -516,7 +590,7 @@ const addConnectedUx = async () => {
   await loadAvatar();
   loadMessaging();
 
-  if (!('enterImmediate' in qs)) {
+  if (!avatar.loc && !('enterImmediate' in qs || 'worldId' in qs)) {
     createElement('br').parent(goBut_d);
     const goBut = createElement('input');
     goBut.parent(goBut_d);
@@ -589,25 +663,44 @@ async function mapSetup() {
     infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
     infBox.html(`<i>loading <b>(${showX}, ${showY})</b>...</i>`);
 
-    const loadBlock = async (worldId, showX, showY) => {
-      let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
-      let qStr = `${rootQStr}?n=${oNoise}`;
-      let res = await faunaFetch(qStr);
+    const loadBlock = async (worldId, showX, showY, preloadedBlock) => {
+      let res;
+
+      if (!preloadedBlock) {
+        let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
+        let qStr = `${rootQStr}?n=${oNoise}`;
+        res = await faunaFetch(qStr);
+      } else {
+        res = { block: preloadedBlock };
+      }
+
       infBox.html(`<b>(${showX}, ${showY})</b> is <b>${res.block.type}</b> ` + 
         `<br/>with <b>${res.block.count}</b> visitors` + 
         (res.block.inventory.length ? ` &amp; <b>${res.block.inventory.length}</b> items!` : '') + '<br/><br/>');
 
 
-      if (!avatarLoc.cur) {
+      if (avatarLoc) {
         let startBut = createElement('input');
-        startBut.parent(infBox);
         startBut.elt.id = 'beginbut';
         startBut.elt.type = 'submit';
-        startBut.elt.value = 'Begin the journey here!';
-        startBut.elt.onclick = () => {
+        startBut.elt.onclick = async () => {
           startBut.elt.parentNode.removeChild(startBut.elt);
-          setAvatarLoc(showX, showY);
+          let newBlockInfo = await setAvatarLoc(showX, showY);
+          loadBlock(worldId, showX, showY, newBlockInfo);
         };
+
+        if (!avatarLoc.cur) {
+          startBut.elt.value = 'Begin the journey here!';
+        }
+        else if (!(avatarLoc.cur.x === showX && avatarLoc.cur.y === showY)) {
+          startBut.elt.value = 'Move here';
+        }
+
+        if (startBut.value().length > 0) {
+          startBut.parent(infBox);
+        } else {
+          startBut.remove();
+        }
       }
 
       let notesCount = res.block.inventory.reduce((a, x) => a += x.type === 'note' ? 1 : 0, 0);
@@ -681,9 +774,11 @@ async function mapSetup() {
   noStroke();
   select('#howbox').elt.style.display = 'block';
   mapReady = true;
+
   if (connected) {
     addConnectedUx();
   }
+
   render();
 }
 
