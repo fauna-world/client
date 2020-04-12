@@ -207,11 +207,15 @@ const updateChatBox = () => {
     const _ps = (s) => String(s).padStart(2, '0');
     return `${_ps(m.rxTime.getHours())}:${_ps(m.rxTime.getMinutes())}:${_ps(m.rxTime.getSeconds())}`;
   };
+
+  const formatChatMsg = (x) => {
+    return `&lt;<span class='chatusername tooltip'>` +
+      `<span class='tooltiptext tooltip_top'>${rxTimeStr(x)}</span>` +
+      (x.from.species ? `<img src='assets/${x.from.species}.png' class='chatimg'/>` : '') + 
+      `${x.from.name}</span>&gt; ${x.payload}`;
+  };
   
-  select('#chatmain').html(chatLog
-    .slice(-dims.chatHist).map(x => `[${rxTimeStr(x)}] &lt;<b>` + 
-    (x.from.species ? `<img src='assets/${x.from.species}.png' class='chatimg'/>` : '') + 
-    `${x.from.name}</b>&gt; ${x.payload}`).join('<br/>'));
+  select('#chatmain').html(chatLog.slice(-dims.chatHist).map(formatChatMsg).join('<br/>'));
 };
 
 const gs = (key, allow, cb, val) => {
@@ -381,21 +385,30 @@ async function loadMessaging(reconnect = false) {
     
     heartbeat();
 
-    sendTxt.elt.disabled = false;
-    sendTxt.value('');
-    sendBut.elt.disabled = false;
-    sendBut.elt.onclick = () => {
+    const _sendMsg = () => {
       let chkVal = sendTxt.value().trim();
-      if (chkVal.length)
-      wsConn.send(JSON.stringify({
-        type: 'chat',
-        payload: chkVal,
-        from: fromObj,
-        localTs: Date.now(),
-        to: 'global'
-      }));
+      if (chkVal.length) {
+        wsConn.send(JSON.stringify({
+          type: 'chat',
+          payload: chkVal,
+          from: fromObj,
+          localTs: Date.now(),
+          to: 'global'
+        }));
+      }
       sendTxt.value('');
     };
+
+    sendTxt.elt.disabled = false;
+    sendTxt.value('');
+    sendTxt.elt.onkeydown = (keyEv) => {
+      if (keyEv.key === 'Enter') {
+        _sendMsg();
+      }
+    };
+
+    sendBut.elt.disabled = false;
+    sendBut.elt.onclick = _sendMsg;
   });
 
   const _seasons = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 
@@ -413,8 +426,13 @@ async function loadMessaging(reconnect = false) {
       } else if (msgObj.type === 'gametime') {
         select('#gameclock').style('display', 'block');
         let gameDate = new Date(msgObj.payload.time);
-        select('#gameclock').html(_seasons[gameDate.getMonth()] + ' ' + 
-          `${String(gameDate.getFullYear()).padStart(4, '0')}<!--${msgObj.payload.epoch}-->`);
+        const ttTimeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', dateStyle: 'full' };
+        select('#gameclock').html(
+          `<span class='tooltip'><span class='tooltiptext tooltip_bot'>` +
+          ` ${gameDate.toLocaleDateString(undefined, ttTimeOpts)}<br/>Game epoch ${msgObj.payload.epoch}</span>` +
+          _seasons[gameDate.getMonth()] + ' ' + 
+          `${String(gameDate.getFullYear()).padStart(4, '0')}</span>`
+        );
       } else if (msgObj.type === 'reconnect') {
         console.log(`successful reconnect at ${(new Date(msgObj.localTs)).toISOString()} (${(new Date()).toISOString()})`);
       }
@@ -509,7 +527,6 @@ const addConnectedUx = async () => {
 };
 
 async function mapSetup() {
-  loadingScr.p.removeChild(loadingScr.e.elt);
   windowResized(null);
 
   let insLineBreak = Math.floor((Object.keys(ins).length / 2)) - 1;
@@ -551,18 +568,22 @@ async function mapSetup() {
     const showX = Math.ceil(xAdj - dims.xoff);
     const showY = Math.ceil(yAdj - dims.yoff);
     const oNoise = ourNoise(xAdj, yAdj);
+    
     const oBg = colorXform(oNoise);
-    const oFg = oBg.map(x => 128 - x);
+    let oFgCA = oBg.map(x => 255 - x);
+    const _tc = 92;
+    // if bg & fg colors are too close to each other (_tc), push the fg color out by (_tc * 2) or just max it
+    oFgCA = oFgCA.map((x, i) => Math.abs(oBg[i] - x) < _tc ? (x + (_tc * 2) > 255 ? 255 : x + (_tc * 2)) : x);
+    // pick the highest-valued fg color as greyscale component
+    const oFgC = oFgCA.reduce((a, x) => a > x ? a : x, 0);
+    const oFg = [oFgC, oFgC, oFgC];
 
     setSelectedLocation(showX, showY);
 
-    console.log(`r:${dims.res} s:${dims.scale} o:(${dims.xoff}, ${dims.yoff}) -- ` +
-      `(${mouseX}, ${mouseY}) (${xAdj}, ${yAdj}) (${showX}, ${showY}) -> ` + 
-      `${oNoise} ${noise(showX * dims.scale, showY * dims.scale)}`);
     infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
     infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
     infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
-    infBox.html(`<i>loading <b>(${showX},${showY})</b>...</i>`);
+    infBox.html(`<i>loading <b>(${showX}, ${showY})</b>...</i>`);
 
     const loadBlock = async (worldId, showX, showY) => {
       let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
@@ -601,6 +622,14 @@ async function mapSetup() {
         createElement('br').parent(infBox);
       }
 
+      const submitNote = () => {
+        faunaFetch(`${rootQStr}/add`, {
+          type: 'note',
+          payload: noteText.value(),
+          poster: Object.assign({}, avatar, { id: avatarId })
+        }).then(() => setTimeout(() => loadBlock(worldId, showX, showY), 100));
+      };
+
       let noteDiv = createElement('div');
       noteDiv.parent(infBox);
 
@@ -608,21 +637,19 @@ async function mapSetup() {
       noteText.parent(noteDiv);
       noteText.elt.style.width = '175px';
       noteText.elt.style.fontSize = '80%';
+      noteText.elt.onkeydown = (keyEv) => {
+        if (keyEv.key === 'Enter') {
+          submitNote();
+        }
+      };
 
-      createElement('br').parent(noteDiv);
       let noteBut = createElement('input');
       noteBut.parent(noteDiv);
       noteBut.elt.type = 'submit';
-      noteBut.elt.style.width = '150px';
-      noteBut.value('Leave a note');
+      noteBut.elt.style.width = '120px';
+      noteBut.value('⏎ Make a note');
 
-      noteBut.elt.onclick = () => {
-        faunaFetch(`${rootQStr}/add`, {
-          type: 'note',
-          payload: noteText.value(),
-          poster: Object.assign({}, avatar, { id: avatarId })
-        }).then(() => setTimeout(() => loadBlock(worldId, showX, showY), 100));
-      };
+      noteBut.elt.onclick = submitNote;
     };
 
     if (worldId) {
@@ -700,6 +727,7 @@ async function userPrompt() {
     avatar = await fetchAvatar(avatarId);
   }
 
+  loadingScr.p.removeChild(loadingScr.e.elt);
   if (!avatar) {
     let userbox = select('#userbox');
     userbox.elt.style.display = 'block';

@@ -18,7 +18,7 @@
       "avatarNameLengthLimit": 128
     },
     "logChatToConsole": true,
-    "sendTimeUpdatesEvery": 17,
+    "sendTimeUpdatesEvery": 7,
     "motdFile": "motd.html"
   },
   "engine": {

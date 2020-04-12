@@ -22,8 +22,8 @@ const config = {
     boxSelectBorderColor: [0, 255, 255]
   },
   uiMultipliers: {
-    width: 0.55,
-    height: 0.7
+    width: 0.45,
+    height: 0.55
   },
   preloadImages: [
     'bluebird.png',
