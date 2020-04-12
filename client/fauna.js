@@ -16,6 +16,7 @@ let avatar;
 let speciesSpec;
 let gameMeta;
 let avatarLoc = { cur: undefined, prev: undefined };
+let loadingScr = { e: undefined, p: undefined };
 let preloads = {};
 let mapLocs = {};
 
@@ -508,7 +509,9 @@ const addConnectedUx = async () => {
 };
 
 async function mapSetup() {
+  loadingScr.p.removeChild(loadingScr.e.elt);
   windowResized(null);
+
   let insLineBreak = Math.floor((Object.keys(ins).length / 2)) - 1;
   let ins_d = createElement('div');
   ins_d.elt.id = 'ins_d';
@@ -725,24 +728,34 @@ async function userPrompt() {
 }
 
 function preload() {
+  loadingScr.e = select('#p5_loading');
+  loadingScr.p = loadingScr.e.elt.parentNode;
+
   if (config.preloadImages.length) {
     console.log(`preloading ${config.preloadImages.length} images:`);
     config.preloadImages.forEach(asset => {
       loadImage(`assets/${asset}`, (loadedImg) => {
         preloads[asset] = loadedImg;
         console.log(`loaded ${asset}`);
+        loadingScr.e.html(loadingScr.e.html() + `Pre-loaded ${asset}<br/>`);
       })
     });
   }
 }
 
 async function setup() {
+  loadingScr.p.appendChild(loadingScr.e.elt);
+
+  loadingScr.e.html(loadingScr.e.html() + '<br/>Contacting server...<br/>');
   let apiVer = await apiCheck();
+  loadingScr.e.html(loadingScr.e.html() + 'Server found!<br/>');
 
   if (apiVer !== null) {
     console.log(`Fauna v${apiVer}`);
+    loadingScr.e.html(loadingScr.e.html() + `<br/><h2>Fauna v${apiVer} loaded!</h2>`);
     document.title = `Fauna`;
   } else {
+    loadingScr.p.removeChild(loadingScr.e.elt);
     let sad_d = createElement('div');
     sad_d.html('<h1>No server found!</h1>');
   }
