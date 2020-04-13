@@ -33,11 +33,16 @@ const slashCommands = {
     exec: async (avatarId, wss, args) => {
       let msg = `${wss.getConnectedCount()} currently connected fauna:<br/></br>` + 
         '<ul style="margin-left: -20px; margin-bottom: 0px;">';
-      msg += Object.entries(wss.getConnectedSockets()).map(sock => 
+      msg += Object.entries(wss.getConnectedSockets()).map(sock => {
+        if ('closeReason' in sock[1]) {
+          return '';
+        }
+
         `<li><span class="tooltip chatusername"><span class="tooltiptext tooltip_top">` +
         `DM ID: <b>${sock[0].substring(0, 8)}</b></span>` +
         `<img class='chatimg' src='assets/${sock[1].avatar.species}.png'><b>${sock[1].avatar.name}</b> ` +
-        `</span></li>`).join('');
+        `</span></li>`
+      }).join('');
       return msg + '</ul>';
     }
   },
