@@ -666,9 +666,9 @@ async function mapSetup() {
 
     const loadBlock = async (worldId, showX, showY, preloadedBlock) => {
       let res;
+      let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
 
       if (!preloadedBlock) {
-        let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
         let qStr = `${rootQStr}?n=${oNoise}`;
         res = await faunaFetch(qStr);
       } else {
