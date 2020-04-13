@@ -126,14 +126,10 @@ module.exports = class WsServer {
     const realPinger = () => {
       Object.keys(this.conns).forEach((connKey) => {
         if (this.conns[connKey].waitingOnPong > 0) {
-          this.log(`conn ${connKey} didn't 'pong' back: ${this.conns[connKey].waitingOnPong}; killing`);
-          this.log(`last heartbeat delta: ${Date.now() - this.conns[connKey].lastHeartbeat}`);
           if (this.conns[connKey].waitingOnPong === 1) {
-            this.log('trying polite close first...');
             this.conns[connKey].close(1002, 'ping not ponged');
             ++this.conns[connKey].waitingOnPong;
           } else {
-            this.log('not polite this time');
             this.conns[connKey].terminate();
             delete this.conns[connKey];
           }
@@ -141,7 +137,6 @@ module.exports = class WsServer {
           if (this.conns[connKey].waitingOnPong++) {
             this.log(`${WARN_CHAR} still waiting on a pong from ${connKey} (${this.conns[connKey].waitingOnPong})`);
           }
-          //this.log(`pinging ${connKey} (${this.conns[connKey].waitingOnPong})`);
           this.conns[connKey].ping(Buffer.from('PING', 'utf8'));
         }
       });
@@ -180,9 +175,7 @@ module.exports = class WsServer {
           closeReason = this.conns[wsAvatarId].closeReason;
         }
         this.conns[wsAvatarId].close(closeReason, 'already connected');
-        //delete this.conns[wsAvatarId];
       } else {
-        this.log(`${(isReconnect ? 'reconn' : 'new')} ws for ${wsAvatarId}`);
         if (isReconnect && wsAvatarId in this.conns) {
           this.conns[wsAvatarId].waitingOnPong = 0;
         }
@@ -300,32 +293,24 @@ module.exports = class WsServer {
       });
 
       c.on('close', (e) => {
-        this.log(`closing ws to ${wsAvatarId} ${this.conns[wsAvatarId]} ${e}`);
+        this.log(`ws to ${wsAvatarId} was closed: ${e}`);
         if (wsAvatarId in this.conns) {
-          if ('lastHeartbeat' in this.conns[wsAvatarId]) {
-            this.log(`last heartbeat delta: ${Date.now() - this.conns[wsAvatarId].lastHeartbeat}`);
-          } else {
+          if (!('lastHeartbeat' in this.conns[wsAvatarId])) {
             this.log(`no last heartbeat - ${WARN_CHAR} zombie!`);
           }
           this.conns[wsAvatarId].closeReason = e;
-          //delete this.conns[wsAvatarId];
         }
       });
 
       c.on('ping', (data) => {
-        this.log(`${WARN_CHAR} PING? ${wsAvatarId}`);
-        this.log(data);
-        this.log(typeof data);
-        this.log(`data! ${data.toString()}`);
         if (wsAvatarId in this.conns) {
-          this.log("we'll count it! ponging back");
+          this.log(`unexpected ping from ${wsAvatarId}`);
           this.conns[wsAvatarId].pong(data);
           this.conns[wsAvatarId].waitingOnPong = 0;
         }
       });
 
       c.on('pong', () => {
-        //this.log(`pong from ${wsAvatarId}`);
         if (!(wsAvatarId in this.conns)) {
           this.log(`${ALERT_CHAR} conn ${wsAvatarId} ponged but is not in conns list!!`);
           return;
