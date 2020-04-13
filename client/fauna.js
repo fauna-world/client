@@ -693,7 +693,7 @@ async function mapSetup() {
           startBut.elt.value = 'Begin the journey here!';
         }
         else if (!(avatarLoc.cur.x === showX && avatarLoc.cur.y === showY)) {
-          startBut.elt.value = 'Move here';
+          startBut.elt.value = 'Fly here';
         }
 
         if (startBut.value().length > 0) {
