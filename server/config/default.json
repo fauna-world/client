@@ -18,7 +18,7 @@
       "avatarNameLengthLimit": 128
     },
     "logChatToConsole": true,
-    "sendTimeUpdatesEvery": 7,
+    "sendTimeUpdatesEvery": 3,
     "motdFile": "motd.html"
   },
   "engine": {
@@ -33,61 +33,125 @@
         "0.6": "plains",
         "0.8": "mountains",
         "1.2": "peaks"
+      },
+      "seasons": ["Winter", "Winter", "Spring", "Spring", "Spring", 
+        "Summer", "Summer", "Summer", "Fall", "Fall", "Fall", "Winter"],
+      "boosts": {
+        "water": "spring",
+        "grassland": "summer",
+        "plains": "fall",
+        "mountains": "winter",
+        "1.2": null
       }
     },
     "meta": {
       "statMax": 10,
-      "lifeMax": 100
+      "consumptionAllowanceAttr": "tranquility",
+      "tranquilityMax": 3,
+      "lifeMax": 100,
+      "defaultGenerateChance": 0.01,
+      "maxSeasonalDropChanceBoost": 0.1,
+      "overallMovementWeight": 2
     },
     "species": {
       "hummingbird": {
         "displayName": "Hummingbird",
         "stats": {
-          "agility": 10,
-          "longevity": 3,
-          "mobility": 8
+          "acuity": 7,
+          "tenacity": 8,
+          "mobility": 8,
+          "tranquility": 1
         }
       },
       "morningdove": {
         "displayName": "Morning Dove",
         "stats": {
-          "agility": 4,
-          "longevity": 10,
-          "mobility": 4
+          "acuity": 2,
+          "tenacity": 5,
+          "mobility": 4,
+          "tranquility": 3
         }
       },
       "bluebird": {
         "displayName": "Scrub Jay",
         "stats": {
-          "agility": 5,
-          "longevity": 9,
-          "mobility": 7
+          "acuity": 4,
+          "tenacity": 9,
+          "mobility": 7,
+          "tranquility": 1
         }
       },
       "butterfly": {
         "displayName": "Butterfly",
         "stats": {
-          "agility": 9,
-          "longevity": 1,
-          "mobility": 10
+          "acuity": 3,
+          "tenacity": 5,
+          "mobility": 10,
+          "tranquility": 3
         }
       },
       "sparrow": {
         "displayName": "Sparrow",
         "stats": {
-          "agility": 7,
-          "longevity": 3,
-          "mobility": 5
+          "acuity": 5,
+          "tenacity": 10,
+          "mobility": 5,
+          "tranquility": 2
         }
       },
       "crow": {
         "displayName": "Crow",
         "stats": {
-          "agility": 3,
-          "longevity": 8,
-          "mobility": 2
+          "acuity": 10,
+          "tenacity": 9,
+          "mobility": 2,
+          "tranquility": 2
         }
       }
+    },
+    "items": {
+      "consumable": [
+        {
+          "name": "Seeds",
+          "affect": "life",
+          "range": [1, 3],
+          "generate": 0.25,
+          "modifiers": {
+            "generate": "tenacity",
+            "range": "acuity"
+          }
+        },
+        {
+          "name": "Grub",
+          "affect": "life",
+          "range": [4, 8],
+          "generate": 0.05,
+          "modifiers": {
+            "generate": "tenacity",
+            "range": "acuity"
+          }
+        },
+        {
+          "name": "Worm",
+          "affect": "life",
+          "range": [8, 12],
+          "generate": 0.01,
+          "modifiers": {
+            "generate": "tenacity",
+            "range": "acuity"
+          }
+        },
+        {
+          "name": "Breadcrumb Vending Machine",
+          "affect": "life",
+          "range": [100, 200],
+          "generate": 0.000001,
+          "modifiers": {
+            "generate": "tenacity",
+            "range": "acuity"
+          }
+        }
+      ]
     }
   }
 }

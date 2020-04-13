@@ -2,6 +2,7 @@ const config = require('config');
 const moment = require('moment');
 const uuid = require('uuid').v4;
 const Cache = require('./cache');
+const { NAME } = require('./util');
 
 const INITIAL_GAMETIME = moment(0).subtract(1969, 'years');
 
@@ -88,8 +89,13 @@ module.exports = class Engine {
 
   async avatars(avatarId, newAvatar) {
     if (newAvatar) {
+      // TODO: this 'implicit newlife' should probably be more explicit...
       if (!('life' in newAvatar)) {
         newAvatar.life = config.game.meta.lifeMax;
+        newAvatar.scores = {
+          moved: 0
+        };
+        newAvatar.consumeAllowed = config.game.species[newAvatar.species].stats[config.game.meta.consumptionAllowanceAttr];
       }
 
       return this.submitPromisedWriteOpReturningId(avatarId, newAvatar, 
@@ -105,6 +111,7 @@ module.exports = class Engine {
     let retVal = { success: false };
 
     if (curAvatar && world) {
+      const sstats = config.game.species[curAvatar.species].stats;
       let moveAllowed = false;
 
       if (curAvatar.loc) {
@@ -114,11 +121,10 @@ module.exports = class Engine {
 
         this.log(`cur=(${curAvatar.loc.x}, ${curAvatar.loc.y}) new=(${x}, ${y})`);
         const sMax = config.game.meta.statMax;
-        const sstats = config.game.species[curAvatar.species].stats;
         // get MANHATTAN? (pythag?) distance, weighted by mobility
         const manhattan = Math.abs(x - curAvatar.loc.x) + Math.abs(y - curAvatar.loc.y);
-        const effectiveMh = manhattan / (0.9 + (1 / (sMax / sstats.mobility)));
-        const ceilEffMh = Math.round(effectiveMh)
+        const effectiveMh = (manhattan / (0.9 + (1 / (sMax / sstats.mobility)))) * config.game.meta.overallMovementWeight;
+        const ceilEffMh = Math.round(effectiveMh);
         this.log(`mobility=${sstats.mobility} manhattan=${manhattan} effectiveMh=${ceilEffMh}(${effectiveMh})`);
 
 
@@ -137,6 +143,7 @@ module.exports = class Engine {
           this.log(`CAN DO! ${curAvatar.life} >= ${ceilEffMh}`);
           moveAllowed = true;
           curAvatar.life -= ceilEffMh;
+          curAvatar.scores.moved += manhattan;
         }
       } else {
         moveAllowed = true;
@@ -144,10 +151,57 @@ module.exports = class Engine {
 
       if (moveAllowed) {
         curAvatar.loc = { worldId, x, y };
+        curAvatar.consumeAllowed = sstats[config.game.meta.consumptionAllowanceAttr];
         await this.avatars(avatarId, curAvatar);
         retVal.avatar = curAvatar;
-        retVal.block = await world.grid(x, y, null, true);
+        retVal.block = await world.grid(x, y, null, curAvatar.species);
         retVal.success = true;
+
+        if (curAvatar.life === 0) {
+          // drop 'tombstone' note; TODO: should be structured data! probably an item
+          retVal.block.inventory.push({
+            type: 'note',
+            payload: `[RIP] A ${curAvatar.species} named <b>${curAvatar.name}</b> perished here on ` + 
+              `<b>${(new Date()).toUTCString()}</b> after ` +
+              `flying a distance of <b>${curAvatar.scores.moved}</b> blocks.`,
+            poster: { name: NAME, species: 'game' }
+          });
+
+          // TODO: need a 'distance from startpoint' score!
+          // will require tracking the avatars start point specfically
+          // good game mechanic though, encourages moving outward
+
+          world.grid(x, y, retVal.block);
+        }
+      }
+    }
+
+    return retVal;
+  }
+
+  async consumeItem(avatarId, worldId, x, y, itemId) {
+    let curAvatar = await this.cache.avatars(avatarId);
+    let retVal = { success: false };
+
+    if (curAvatar.consumeAllowed && curAvatar.life > 0) {
+      let world = await this.cache.worlds(worldId);
+      let block = await world.grid(x, y);
+
+      if (block.inventory.length) {
+        let foundItem = block.inventory.find(itemCont => itemCont.payload.id === itemId).payload;
+        if (foundItem) {
+          // XXX: this whole thing should be atomic! (pipelined?)
+          block.inventory = block.inventory.filter(itemCont => itemCont.payload.id !== itemId);
+          await world.grid(x, y, block);
+
+          curAvatar.life += foundItem.stat;
+          curAvatar.consumeAllowed--;
+          await this.avatars(avatarId, curAvatar);
+
+          retVal.block = block;
+          retVal.avatar = curAvatar;
+          retVal.success = true;
+        }
       }
     }
 

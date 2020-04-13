@@ -110,6 +110,7 @@ input:disabled {
   border: 2px solid #556677;
   text-align: center;
   border-radius: 8px;
+  max-width: 720px;
 }
 
 .p5Canvas {
@@ -146,6 +147,12 @@ input:disabled {
   text-align: left;
 }
 
+.statname {
+  font-family: "Press Start 2P";
+  font-size: 7pt;
+  vertical-align: -10%; 
+}
+
 .avstatstat {
   font-weight: bolder;
   text-align: right;
@@ -171,6 +178,7 @@ h3 {
 #ub_new {
   padding-top: 10px;
   padding-bottom: 15px;
+  text-align: center;
 }
 
 #speciestable {
@@ -243,10 +251,10 @@ h3 {
 .statclr_4 { color: rgb(255, 145, 0); }
 .statclr_5 { color: rgb(231, 216, 0); }
 .statclr_6 { color: rgb(169, 231, 0); }
-.statclr_7 { color: rgb(65, 231, 0); }
-.statclr_8 { color: rgb(0, 231, 116); }
-.statclr_9 { color: rgb(0, 231, 162); }
-.statclr_10 { color: rgb(0, 231, 219); }
+.statclr_7 { color: rgb(0, 231, 219); }
+.statclr_8 { color: rgb(0, 231, 162); }
+.statclr_9 { color: rgb(0, 231, 116); }
+.statclr_10 { color: rgb(65, 231, 0); }
 
 .bg_statclr_1 { background-color: rgb(255, 0, 55); }
 .bg_statclr_2 { background-color: rgb(255, 0, 0); }
@@ -310,4 +318,35 @@ h3 {
 
 .tooltip:hover .tooltiptext {
   visibility: visible;
+}
+
+.eatbut {
+  height: 20px;
+  width: 40px;
+  font-size: 70%;
+}
+
+#attrexplainer {
+  text-align: left;
+  margin: 15px;
+}
+
+#attrexplainer ul {
+  margin-left: -10px;
+}
+
+.explainertext {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11pt;
+  font-weight: bolder;
+  line-height: 1.7;
+  vertical-align: 10%; 
+}
+
+#attrexplainerbox {
+  background-color: #00080a;
+  border: 1px dotted #aabbcc;
+  border-radius: 8px;
+  margin: 4px;
+  padding: 4px;
 }

@@ -13,6 +13,7 @@ let curMap;
 let worldId;
 let avatarId;
 let avatar;
+let gameCfg;
 let speciesSpec;
 let gameMeta;
 let avatarLoc = { cur: undefined, prev: undefined };
@@ -76,9 +77,9 @@ const apiCheck = async () => {
     let res = await fetch(`${config.host}/ping`);
     let text = await res.text();
     if (text.match(/^[\d\.]+$/) !== null) {
-      let sRes = await faunaFetch('species');
+      gameCfg = await faunaFetch('gamecfg');
       let mRes = await faunaFetch('meta');
-      speciesSpec = sRes.species;
+      speciesSpec = gameCfg.species;
       gameMeta = mRes;
       connected = true;
       return text;
@@ -123,8 +124,10 @@ const render = () => {
     return;
   }
 
+  clear();
   noiseDetail(dims.lod, dims.falloff);
   noiseSeed(dims.seed);
+
   let rd = { w: dims.w / dims.res, h: dims.h / dims.res };
   curMap = [];
   for (let x = 0; x < rd.w; x++) {
@@ -141,6 +144,9 @@ const render = () => {
       if (mapCoordStr in mapLocs) {
         let luFill = mapLocs[mapCoordStr];
         fillObj = typeof luFill === 'function' ? luFill(mapCoords, fillObj) : luFill;
+        if (typeof fillObj === 'function') {
+          fillObj = fillObj(mapCoords, fillObj);
+        }
       }
 
       let properDims = [x * dims.res, y * dims.res, dims.res, dims.res];
@@ -153,7 +159,8 @@ const render = () => {
         rect(...properDims);
         image(fillObj, ...properDims);
       } else {
-        throw new Error(`unknown fill obj! ${properDims}`);
+        console.log(fillObj);
+        throw new Error(`^^^ unknown fill obj! ${properDims}`);
       }
 
       noStroke();
@@ -163,6 +170,18 @@ const render = () => {
 
 let _lastSelLoc;
 let _origCellFill;
+
+const updateAvatarInfo = (x, y) => {    
+  let statsDiv = select('#avatarstatsdiv');
+  let html = '<table id="avstattable">';
+  html += '<tr><td class="avstatname">Block:</td>';
+  html += `<td class="avstatstat">(${x}, ${y})</td></tr>`;
+  html += `<tr><td class="avstatname">Life:</td>`;
+  html += `<td class="avstatstat">${avatar.life}</td>`;
+  html += `</tr></table>`;
+  statsDiv.html(html);
+  statsDiv.style('display', 'block');
+}
 
 const setAvatarLoc = async (x, y, uiOnly = false) => {
   const newLoc = `${x},${y}`;
@@ -183,14 +202,16 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     setBlock = await faunaFetch(`avatar/${avatarId}/loc`, { worldId, x, y });
 
     if (!setBlock.success) {
-      alert('Your energy is not high enough to move this far!');
+      alert('Your life is not high enough to move this far!');
       return;
     }
   }
 
   if (uiOnly || (setBlock.block && setBlock.avatar)) {
     if (avatarLoc.cur) {
-      delete mapLocs[`${avatarLoc.cur.x},${avatarLoc.cur.y}`];
+      const curLocStr = `${avatarLoc.cur.x},${avatarLoc.cur.y}`
+      avatarLoc.prev = { loc: avatarLoc.cur, fill: mapLocs[curLocStr] };
+      mapLocs[curLocStr] = (_, origFill) => _borderCell(origFill, config.uiDefaults.visitedBorderColor);
     }
 
     if (!uiOnly) {
@@ -200,21 +221,12 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     avatarLoc.cur = { x, y };
     mapLocs[newLoc] = preloads[`${avatar.species}.png`];
 
-    let statsDiv = select('#avatarstatsdiv');
-    let html = '<table id="avstattable">';
-    html += '<tr><td class="avstatname">Block:</td>';
-    html += `<td class="avstatstat">(${x}, ${y})</td></tr>`;
-    html += `<tr><td class="avstatname">Energy:</td>`;
-    html += `<td class="avstatstat">${avatar.life}</td>`;
-    html += `</tr></table>`;
-    statsDiv.html(html);
-    statsDiv.style('display', 'block');
-
+    updateAvatarInfo(x, y);
     render();
 
     if (avatar.life === 0) {
-      alert('You have died. Better luck next time!\n\nPlease click "OK" to begin anew.');
-      window.location = '/?faunaAvatar=null';
+      alert(`You have perished after flying a distance of ${avatar.scores.moved} blocks.` + 
+        '\n\nPlease click "RESET!" to begin anew.');
     }
 
     return !uiOnly ? setBlock.block : null;
@@ -239,7 +251,11 @@ const setSelectedLocation = (x, y) => {
 
   if (newLoc in mapLocs) {
     _origCellFill = mapLocs[newLoc];
-    mapLocs[newLoc] = renderFunc.bind(null, null, _origCellFill);
+    if (typeof _origCellFill === 'function') {
+      mapLocs[newLoc] = (c, oFill) => renderFunc(c, _origCellFill(c, oFill));
+    } else {
+      mapLocs[newLoc] = renderFunc.bind(null, null, _origCellFill);
+    }
   } else {
     mapLocs[newLoc] = renderFunc;
   }
@@ -462,8 +478,7 @@ async function loadMessaging(reconnect = false) {
     sendBut.elt.onclick = _sendMsg;
   });
 
-  const _seasons = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 
-  'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'];
+  const _seasons = gameCfg.block.seasons;
   const _months = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
   wsConn.addEventListener('message', () => {
@@ -534,8 +549,8 @@ const addConnectedUx = async () => {
   const goButClicked = async () => {
     mapLocked = true;
     goBut_d.elt.style.display = 'none';
-    select('body').elt.className = 'go';
 
+    select('body').elt.className = 'go';
     select('#chatform').style('display', 'block');
 
     const fetchExtantWorld = async (worldId) => {
@@ -577,6 +592,7 @@ const addConnectedUx = async () => {
       }
     }
 
+    window.history.pushState(`enter world ${worldId}`, 'Fauna', `/?worldId=${worldId}`);
     worldBanner.html(`Welcome to<br/><span style='font-variant: small-caps'>` + 
       `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
       `<br/><span style='font-size: 65%;'>(<a href='/?faunaAvatar=null'>RESET!</a>)</span>`);
@@ -658,11 +674,6 @@ async function mapSetup() {
 
     setSelectedLocation(showX, showY);
 
-    infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
-    infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
-    infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
-    infBox.html(`<i>loading <b>(${showX}, ${showY})</b>...</i>`);
-
     const loadBlock = async (worldId, showX, showY, preloadedBlock) => {
       let res;
       let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
@@ -679,6 +690,8 @@ async function mapSetup() {
         (res.block.inventory.length ? ` &amp; <b>${res.block.inventory.length}</b> items!` : '') + '<br/><br/>');
 
 
+      let isCurrentAvatarLoc = false;
+
       if (avatarLoc) {
         let startBut = createElement('input');
         startBut.elt.id = 'beginbut';
@@ -692,7 +705,7 @@ async function mapSetup() {
         if (!avatarLoc.cur) {
           startBut.elt.value = 'Begin the journey here!';
         }
-        else if (!(avatarLoc.cur.x === showX && avatarLoc.cur.y === showY)) {
+        else if (!(isCurrentAvatarLoc = avatarLoc.cur.x === showX && avatarLoc.cur.y === showY)) {
           startBut.elt.value = 'Fly here';
         }
 
@@ -703,7 +716,44 @@ async function mapSetup() {
         }
       }
 
-      let notesCount = res.block.inventory.reduce((a, x) => a += x.type === 'note' ? 1 : 0, 0);
+      const itemsToRender = res.block.inventory.filter(x => x.type === 'item' && x.payload.type === 'consumable');
+
+      // TODO: render as a table, too?
+      if (itemsToRender.length) {
+        const itemsDiv = createElement('div');
+        itemsDiv.parent(infBox);
+        itemsDiv.html('<u>Available items</u>:<br/>');
+        itemsDiv.elt.id = 'itemsdiv';
+        itemsToRender.forEach(itemCont => {
+          let item = itemCont.payload;
+          const itemDiv = createElement('div');
+          itemDiv.parent(itemsDiv);
+
+          let eatBut = createInput('Eat', 'submit');
+          eatBut.parent(itemDiv);
+          eatBut.class('eatbut');
+          eatBut.elt.id = `eat_item_${item.id.substring(0, 8)}`;
+
+          eatBut.elt.onclick = async () => {
+            let res = await faunaFetch(`avatar/${avatarId}/loc`, { worldId: worldId, x: showX, y: showY, itemId: item.id });
+            avatar = res.avatar;
+            updateAvatarInfo(showX, showY);
+            loadBlock(worldId, showX, showY, res.block);
+          };
+
+          if (avatar.life <= 0) {
+            eatBut.elt.disabled = true;
+          }
+
+          let itemSpan = createElement('span');
+          itemSpan.parent(itemDiv);
+          itemSpan.html(`&nbsp;"${item.name}", <b>+${item.stat}</b> ${item.affect}`);
+        });
+        createElement('br').parent(itemsDiv);
+      }
+
+      let notesItems = res.block.inventory.filter(x => x.type === 'note');
+      let notesCount = notesItems.length;
       let notesAdded = 0;
       let noteParent = infBox;
       if (notesCount > 0) {
@@ -716,7 +766,7 @@ async function mapSetup() {
         hRow.html(`<u>${notesCount} notes:</u>`);
       }
 
-      res.block.inventory.forEach(invItem => {
+      notesItems.forEach(invItem => {
         if (invItem.type === 'note') {
           ++notesAdded;
           let _s = createElement('tr');
@@ -732,42 +782,45 @@ async function mapSetup() {
         createElement('br').parent(infBox);
       }
 
-      const submitNote = () => {
-        faunaFetch(`${rootQStr}/add`, {
-          type: 'note',
-          payload: noteText.value(),
-          poster: Object.assign({}, avatar, { id: avatarId })
-        }).then(() => setTimeout(() => loadBlock(worldId, showX, showY), 100));
-      };
+      // only allow note submission if the player is at the block
+      if (isCurrentAvatarLoc) {
+        const submitNote = () => {
+          faunaFetch(`${rootQStr}/add`, {
+            type: 'note',
+            payload: noteText.value(),
+            poster: Object.assign({}, avatar, { id: avatarId })
+          }).then(() => setTimeout(() => loadBlock(worldId, showX, showY), 100));
+        };
 
-      let noteDiv = createElement('div');
-      noteDiv.parent(infBox);
+        let noteDiv = createElement('div');
+        noteDiv.parent(infBox);
 
-      let noteText = createElement('input');
-      noteText.parent(noteDiv);
-      noteText.elt.style.width = '175px';
-      noteText.elt.style.fontSize = '80%';
-      noteText.elt.onkeydown = (keyEv) => {
-        if (keyEv.key === 'Enter') {
-          submitNote();
-        }
-      };
+        let noteText = createElement('input');
+        noteText.parent(noteDiv);
+        noteText.elt.style.width = '175px';
+        noteText.elt.style.fontSize = '80%';
+        noteText.elt.onkeydown = (keyEv) => {
+          if (keyEv.key === 'Enter') {
+            submitNote();
+          }
+        };
 
-      let noteBut = createElement('input');
-      noteBut.parent(noteDiv);
-      noteBut.elt.type = 'submit';
-      noteBut.elt.style.width = '120px';
-      noteBut.value('⏎ Make a note');
+        let noteBut = createElement('input');
+        noteBut.parent(noteDiv);
+        noteBut.elt.type = 'submit';
+        noteBut.elt.style.width = '120px';
+        noteBut.value('⏎ Make a note');
 
-      noteBut.elt.onclick = submitNote;
+        noteBut.elt.onclick = submitNote;
+      }
     };
 
     if (worldId) {
+      infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
+      infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
+      infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
+      infBox.html(`<i>loading <b>(${showX}, ${showY})</b>...</i>`);
       await loadBlock(worldId, showX, showY);
-    }
-    else {
-      infBox.html(`<b>(${showX}, ${showY})</b><br/>${oNoise}<br/><i>${curMap[xAdj][yAdj]}</i>` +
-        `<br/>[${oBg.map(x => Math.round(x * 100) / 100).join(', ')}]`);
     }
   })
 
@@ -784,6 +837,7 @@ async function mapSetup() {
 
 async function speciesSelect(speciesKey) {
   let sbox = select('#speciesbox');
+  select('#attrexplainerbox').style('display', 'none');
   sbox.html('');
   select('#specieshdr').html(`This ${speciesSpec[speciesKey].displayName} shall be known as:`);
 
@@ -830,6 +884,9 @@ async function userPrompt() {
     avatarId = qs[config.cookieName];
     document.cookie = `${config.cookieName}=${avatarId}`;
     console.log(`AVATAR (qs!): ${avatarId}`);
+    if (avatarId === 'null') {
+      window.history.pushState('avatar reset', 'Fauna', '/');
+    }
   } else if (config.cookieName in kvCookies && 
     kvCookies[config.cookieName] && kvCookies[config.cookieName] !== "null") {
     avatarId = kvCookies[config.cookieName];
@@ -846,6 +903,9 @@ async function userPrompt() {
     userbox.elt.style.display = 'block';
     select('#ub_new').elt.style.display = 'block';
 
+    select('#attrmax').html(gameCfg.meta.statMax);
+    select('#tranqmax').html(gameCfg.meta.tranquilityMax);
+
     let sbox = select('#speciesbox');
     let shtml = '<table id="speciestable"><tr>';
     let cellCount = 0;
@@ -856,8 +916,13 @@ async function userPrompt() {
       shtml += `<span class='speciesname'>${sspec.displayName}</span><br/>`;
       shtml += '<div class="speciesstats">';
       shtml += '<table class="speciesstats_table">';
-      Object.keys(sspec.stats).forEach(statKey => {
+      Object.keys(sspec.stats).sort().forEach(statKey => {
         let sCCls = `statclr_${sspec.stats[statKey]}`;
+
+        if (statKey === 'tranquility') {
+          let tq = sspec.stats[statKey];
+          sCCls = 'statclr_' + (tq === 1 ? '2' : (tq === 2 ? '7' : '10'));
+        }
 
         shtml += `<tr><td>${statKey}</td><td class='statclr_cell'>` + 
           `<span class='statclr ${sCCls}'>${sspec.stats[statKey]}</span></td></tr>`;

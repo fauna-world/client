@@ -357,6 +357,12 @@ const main = async (fullInitCb) => {
     return Object.assign({}, retVal, { species: config.game.species });
   });
 
+  app.get('/gamecfg', async (req, reply) => {
+    let retVal = { error: false };
+    logReq(req, '/gamecfg');
+    return Object.assign({}, config.game);
+  });
+
   app.get('/meta', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/meta');
@@ -379,13 +385,18 @@ const main = async (fullInitCb) => {
     return retVal;
   });
 
+  /// reuse this for item consumption! if body has an itemId field!
   app.post('/avatar/:avatarId/loc', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/avatar/../loc/..');
     let { avatarId } = req.params;
     let { worldId, x, y } = req.body;
     if (validUuid(avatarId) && validWorldId(worldId)) {
-      retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
+      if (req.body.itemId) {
+        retVal = await engine.consumeItem(avatarId, worldId, x, y, req.body.itemId);
+      } else {
+        retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
+      }
     }
     return retVal;
   });
