@@ -31,7 +31,7 @@ const slashCommands = {
     desc: 'List connected avatars',
     detailDesc: 'Shows a list of currently-connected avatars',
     exec: async (avatarId, wss, args) => {
-      let msg = `${wss.getConnectedCount()} currently connected avatar(s):<br/></br>` + 
+      let msg = `${wss.getConnectedCount()} currently connected fauna:<br/></br>` + 
         '<ul style="margin-left: -20px; margin-bottom: 0px;">';
       msg += Object.entries(wss.getConnectedSockets()).map(sock => 
         `<li><span class="tooltip chatusername"><span class="tooltiptext tooltip_top">` +
