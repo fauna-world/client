@@ -155,7 +155,11 @@ module.exports = class Engine {
   }
 
   logChatMsg(msgObj) {
-    return this.cache.logChatMsg(msgObj);
+    this.cache.logChatMsg(msgObj);
+  }
+
+  submitFeedback(fBack) {
+    this.cache.submitFeedback(fBack);
   }
 
   getGameTime() {

@@ -33,6 +33,10 @@ module.exports = class Cache {
     this.r.lpush(`${this.prefix}:chat:${msgObj.to}`, JSON.stringify(msgObj));
   }
 
+  async submitFeedback(fBack) {
+    this.r.lpush(`${this.prefix}:feedback`, JSON.stringify(fBack));
+  }
+
   async avatars(avatarId, newAvatar) {
     if (avatarId === null && newAvatar) {
       throw new Error(`attempt to create new avatar without ID! ${JSON.stringify(newAvatar)}`);

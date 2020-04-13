@@ -46,7 +46,7 @@ input:disabled {
   position: absolute;
   font-family: 'Courier New', Courier, monospace;
   font-size: 11pt;
-  top: 230px;
+  top: 250px;
   left: 10px;
   border-radius: 5px;
 }
@@ -131,6 +131,7 @@ input:disabled {
 
 #avbox {
   position: absolute;
+  width: 180px;
   top: 10px;
   left: 10px;
   padding: 15px;
@@ -293,10 +294,10 @@ h3 {
 
 .tooltip_top {
   width: 80px;
-  bottom: 100%;
-  left: 50%;
-  margin-left: -40px;
-  padding: 5px 0px 5px 0px;
+  bottom: -25%;
+  left: -20%;
+  margin-left: -80px;
+  padding: 5px;
 }
 
 .tooltip_bot {

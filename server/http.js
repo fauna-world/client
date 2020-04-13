@@ -147,7 +147,7 @@ const main = async (fullInitCb) => {
   });
 
   app.ready(async () => {
-    wsServer = new WsServer({ server: app.server, logger: log, rtInfo });
+    wsServer = new WsServer({ server: app.server, logger: log, engine, rtInfo });
 
     const sendTimeUpdateTo = (cSock, gtCached) => {
       let curGT = gtCached;

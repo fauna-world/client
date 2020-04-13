@@ -10,9 +10,66 @@ const motdInterpolations = {
   VERSION
 };
 
+// TODO: really need to return structured data to the client with these,
+// to let the client render them! way too much markup in here
+const slashCommands = {
+  feedback: {
+    desc: 'Send feedback to Fauna developers',
+    detailDesc: 'All text after the <b>/feedback</b> command itself will be sent to Fauna developers. ' +
+      'If you desire a response and so chose, please include contact information. Thank you!',
+    exec: async (avatarId, wss, args) => {
+      wss.engine.submitFeedback({
+        type: 'feedback',
+        from: avatarId,
+        localTs: Date.now(),
+        payload: args.join(' ')
+      });
+      return 'Many thanks for taking the time to submit feedback! If applicable, we will be in touch post-haste.';
+    }
+  },
+  list: {
+    desc: 'List connected avatars',
+    detailDesc: 'Shows a list of currently-connected avatars',
+    exec: async (avatarId, wss, args) => {
+      let msg = `${wss.getConnectedCount()} currently connected avatar(s):<br/></br>` + 
+        '<ul style="margin-left: -20px; margin-bottom: 0px;">';
+      msg += Object.entries(wss.getConnectedSockets()).map(sock => 
+        `<li><span class="tooltip chatusername"><span class="tooltiptext tooltip_top">` +
+        `DM ID: <b>${sock[0].substring(0, 8)}</b></span>` +
+        `<img class='chatimg' src='assets/${sock[1].avatar.species}.png'><b>${sock[1].avatar.name}</b> ` +
+        `</span></li>`).join('');
+      return msg + '</ul>';
+    }
+  },
+  help: {
+    desc: 'This help. Give a command name as the sole argument for detailed information on said command.',
+    detailDesc: 'Give a command name as the sole argument for detailed information on said command.',
+    exec: async (avatarId, wss, args) => {
+      if (!args.length) {
+        let msg = 'The following commands are available:<br/><br/>';
+        msg += Object.keys(slashCommands).map(slashName =>
+          `/<b>${slashName}</b> &mdash; ${slashCommands[slashName].desc}`
+        ).join('<br/>');
+        return msg + '<br/>';
+      } else {
+        if (args[0].charAt(0) === '/') {
+          args[0] = args[0].substring(1);
+        }
+
+        if (args[0] in slashCommands) {
+          return `Detailed information on '<b>/${args[0]}</b>':<br/><br/>${slashCommands[args[0]].detailDesc}`;
+        } else {
+          return `No such command '<b>/${args[0]}</b>'!`;
+        }
+      }
+    }
+  }
+};
+
 module.exports = class WsServer {
   constructor (opts) {
     this.server = opts.server;
+    this.engine = opts.engine;
     this.log = opts.logger || console.log;
     this.rtInfo = opts.rtInfo || {
       counts: {
@@ -103,7 +160,7 @@ module.exports = class WsServer {
     }
   }
 
-  onConnection(c, req) {
+  async onConnection(c, req) {
     this.log(req, true);
     const qs = url.parse(req.url).query.split('&').map(x => x.split('=')).reduce((a, x) => {
       a[x[0]] = x[1];
@@ -137,6 +194,7 @@ module.exports = class WsServer {
       c.rxQueue = [];
       c.waitingOnPong = 0;
       c.lastHeartbeat = Date.now();
+      c.avatar = await this.engine.avatars(wsAvatarId);
       c.origSend = c.send;
       c.send = (msg) => {
         ++this.rtInfo.counts.messages.tx;
@@ -172,7 +230,7 @@ module.exports = class WsServer {
         this.onmap.connection(c);
       }
 
-      c.on('message', (msgStr) => {
+      c.on('message', async (msgStr) => {
         try {
           let msgObj = JSON.parse(msgStr);
           msgObj.payload = sanitize(msgObj.payload);
@@ -185,6 +243,23 @@ module.exports = class WsServer {
             // don't post empty messages, which may not be empty on the
             // client end but end up empty after sanitization
             if (msgObj.payload.length === 0) {
+              return;
+            }
+
+            msgObj.payload = msgObj.payload.trim();
+
+            if (msgObj.payload.charAt(0) === '/') {
+              let cmdParts = msgObj.payload.substring(1).split(/\s+/);
+              let cmd = cmdParts[0] in slashCommands ? cmdParts.shift() : 'help';
+              let cmdResp = await slashCommands[cmd].exec(wsAvatarId, this, cmdParts);
+              c.send(JSON.stringify({
+                type: 'chat',
+                payload: cmdResp,
+                from: { name: NAME, id: -1 },
+                localTs: Date.now(),
+                to: wsAvatarId
+              }));
+
               return;
             }
 

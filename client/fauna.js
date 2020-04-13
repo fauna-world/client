@@ -251,7 +251,7 @@ const setSelectedLocation = (x, y) => {
 const updateChatBox = () => {
   const rxTimeStr = (m) => {
     const _ps = (s) => String(s).padStart(2, '0');
-    return `${_ps(m.rxTime.getHours())}:${_ps(m.rxTime.getMinutes())}:${_ps(m.rxTime.getSeconds())}`;
+    return `${_ps(m.rxTime.getHours())}:${_ps(m.rxTime.getMinutes())}:${_ps(m.rxTime.getSeconds())}<br/>${m.rxTime.toLocaleDateString()}`;
   };
 
   const formatChatMsg = (x) => {
@@ -568,14 +568,13 @@ const addConnectedUx = async () => {
       jres = await fetchExtantWorld(worldId);
     }
     else {
-      if (!('worldId' in qs)) {
+      if (!worldId) {
         jres = await faunaFetch(`world/enter`, wSpec);
+        worldId = jres.worldId;
       }
       else {
-        jres = await fetchExtantWorld(qs.worldId);
+        jres = await fetchExtantWorld(worldId);
       }
-
-      worldId = jres.worldId;
     }
 
     worldBanner.html(`Welcome to<br/><span style='font-variant: small-caps'>` + 
@@ -799,7 +798,7 @@ async function speciesSelect(speciesKey) {
   let setname = createInput('Take Flight!', 'submit');
   setname.parent(sbox);
   setname.elt.id = 'namebox_go';
-  setname.elt.style.width = '30%';
+  setname.elt.style.width = '40%';
   setname.elt.onclick = async () => {
     let avatarRes = await faunaFetch(`avatar`, { 
       species: speciesKey,
