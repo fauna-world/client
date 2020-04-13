@@ -117,8 +117,8 @@ module.exports = class Engine {
         const sstats = config.game.species[curAvatar.species].stats;
         // get MANHATTAN? (pythag?) distance, weighted by mobility
         const manhattan = Math.abs(x - curAvatar.loc.x) + Math.abs(y - curAvatar.loc.y);
-        const effectiveMh = manhattan * (2 - (1 / (sMax / sstats.mobility)));
-        const ceilEffMh = Math.ceil(effectiveMh)
+        const effectiveMh = manhattan / (0.9 + (1 / (sMax / sstats.mobility)));
+        const ceilEffMh = Math.round(effectiveMh)
         this.log(`mobility=${sstats.mobility} manhattan=${manhattan} effectiveMh=${ceilEffMh}(${effectiveMh})`);
 
 
