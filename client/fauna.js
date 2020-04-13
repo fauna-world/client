@@ -202,7 +202,7 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
 
     let statsDiv = select('#avatarstatsdiv');
     let html = '<table id="avstattable">';
-    html += '<tr><td class="avstatname">Location:</td>';
+    html += '<tr><td class="avstatname">Block:</td>';
     html += `<td class="avstatstat">(${x}, ${y})</td></tr>`;
     html += `<tr><td class="avstatname">Energy:</td>`;
     html += `<td class="avstatstat">${avatar.life}</td>`;
