@@ -552,6 +552,14 @@ const addConnectedUx = async () => {
     };
 
     let jres;
+    const wSpec = {};
+    insLock.forEach(inLock => {
+      let e = select('#ins_' + inLock);
+      e.elt.disabled = true;
+      ins[inLock] = null;
+      wSpec[inLock] = e.value();
+    });
+
     if (avatar.loc) {
       worldId = avatar.loc.worldId;
       dims.xoff = -avatar.loc.x;
@@ -561,13 +569,6 @@ const addConnectedUx = async () => {
     }
     else {
       if (!('worldId' in qs)) {
-        const wSpec = {};
-        insLock.forEach(inLock => {
-          let e = select('#ins_' + inLock);
-          e.elt.disabled = true;
-          ins[inLock] = null;
-          wSpec[inLock] = e.value();
-        });
         jres = await faunaFetch(`world/enter`, wSpec);
       }
       else {
