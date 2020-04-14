@@ -736,9 +736,11 @@ async function mapSetup() {
 
           eatBut.elt.onclick = async () => {
             let res = await faunaFetch(`avatar/${avatarId}/loc`, { worldId: worldId, x: showX, y: showY, itemId: item.id });
-            avatar = res.avatar;
-            updateAvatarInfo(showX, showY);
-            loadBlock(worldId, showX, showY, res.block);
+            if (res.success) {
+              avatar = res.avatar;
+              updateAvatarInfo(showX, showY);
+              loadBlock(worldId, showX, showY, res.block);
+            }
           };
 
           if (avatar.life <= 0) {

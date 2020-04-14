@@ -27,20 +27,6 @@ const slashCommands = {
       return 'Many thanks for taking the time to submit feedback! If applicable, we will be in touch post-haste.';
     }
   },
-  list: {
-    desc: 'List connected avatars',
-    detailDesc: 'Shows a list of currently-connected avatars',
-    exec: async (avatarId, wss, args) => {
-      let msg = `${wss.getConnectedCount()} currently connected fauna:<br/></br>` + 
-        '<ul style="margin-left: -20px; margin-bottom: 0px;">';
-      msg += Object.entries(wss.getConnectedSockets()).map(sock => 
-        `<li><span class="tooltip chatusername"><span class="tooltiptext tooltip_top">` +
-        `DM ID: <b>${sock[0].substring(0, 8)}</b></span>` +
-        `<img class='chatimg' src='assets/${sock[1].avatar.species}.png'><b>${sock[1].avatar.name}</b> ` +
-        `</span></li>`).join('');
-      return msg + '</ul>';
-    }
-  },
   help: {
     desc: 'This help. Give a command name as the sole argument for detailed information on said command.',
     detailDesc: 'Give a command name as the sole argument for detailed information on said command.',
