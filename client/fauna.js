@@ -78,9 +78,8 @@ const apiCheck = async () => {
     let text = await res.text();
     if (text.match(/^[\d\.]+$/) !== null) {
       gameCfg = await faunaFetch('gamecfg');
-      let mRes = await faunaFetch('meta');
       speciesSpec = gameCfg.species;
-      gameMeta = mRes;
+      gameMeta = gameCfg.meta;
       connected = true;
       return text;
     }

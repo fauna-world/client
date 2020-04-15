@@ -17,6 +17,7 @@ const {
   NAME,
   VERSION
 } = require('./util');
+const { ALERT_CHAR } = require('./style');
 
 const rtInfo = {
   counts: {
@@ -351,22 +352,26 @@ const main = async (fullInitCb) => {
     return retVal;
   });
 
+  /** DEPRECATED, remove soon **/
   app.get('/species', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/species');
+    log(`${ALERT_CHAR} deprecated request!`);
     return Object.assign({}, retVal, { species: config.game.species });
+  });
+
+  /** DEPRECATED, remove soon **/
+  app.get('/meta', async (req, reply) => {
+    let retVal = { error: false };
+    logReq(req, '/meta');
+    log(`${ALERT_CHAR} deprecated request!`);
+    return Object.assign({}, retVal, { species: config.game.meta });
   });
 
   app.get('/gamecfg', async (req, reply) => {
     let retVal = { error: false };
     logReq(req, '/gamecfg');
     return Object.assign({}, config.game);
-  });
-
-  app.get('/meta', async (req, reply) => {
-    let retVal = { error: false };
-    logReq(req, '/meta');
-    return Object.assign({}, retVal, { species: config.game.meta });
   });
 
   app.post('/avatar', async (req, reply) => {
