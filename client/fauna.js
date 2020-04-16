@@ -177,6 +177,8 @@ const updateAvatarInfo = (x, y) => {
   html += `<td class="avstatstat">(${x}, ${y})</td></tr>`;
   html += `<tr><td class="avstatname">Life:</td>`;
   html += `<td class="avstatstat">${avatar.life}</td>`;
+  html += `<tr><td class="avstatname">Flown:</td>`;
+  html += `<td class="avstatstat">${avatar.scores.moved}</td>`;
   html += `</tr></table>`;
   statsDiv.html(html);
   statsDiv.style('display', 'block');
