@@ -262,6 +262,7 @@ module.exports = class WsServer {
             if (!(wsAvatarId in this.conns)) {
               this.log(`${ALERT_CHAR} heartbeat from nontracked ${wsAvatarId}!`);
               this.log(msgStr);
+              c.close(1001, 'Going Away');
               return;
             }
             this.conns[wsAvatarId].lastHeartbeat = Date.now();
