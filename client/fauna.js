@@ -516,7 +516,7 @@ async function loadMessaging(reconnect = false) {
 
   wsConn.addEventListener('close', (ev) => {
     clearTimeout(lm_handle);
-    let waitMs = 1 * ((lm_backoff + 1) ** 2);
+    let waitMs = 2 ** lm_backoff;
     console.log(`close ${ev.code}, trying to reconnect ${(new Date()).toISOString()}... (waiting ${waitMs}ms)`);
     if (ev.code !== 1006 && ev.code !== 1001) {
       console.log(ev);

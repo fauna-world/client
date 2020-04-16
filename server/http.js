@@ -201,7 +201,6 @@ const main = async (fullInitCb) => {
 
     const serveStaticAsset = (routePath, fullPath) => {
       const _fill = (routePath, fullPath) => {
-        log(`filling static cache with ${fullPath} for key '${routePath}'`);
         staticRouteCache[routePath] = { 
           mtime: fs.statSync(fullPath).mtime,
           data: fs.readFileSync(fullPath)

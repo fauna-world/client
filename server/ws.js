@@ -112,10 +112,11 @@ module.exports = class WsServer {
     const realPinger = () => {
       Object.keys(this.conns).forEach((connKey) => {
         if (this.conns[connKey].waitingOnPong > 0) {
+          // try to politely close the connection on first missed ping
           if (this.conns[connKey].waitingOnPong === 1) {
-            this.conns[connKey].close(1002, 'ping not ponged');
+            this.conns[connKey].close(1001, 'Going Away');
             ++this.conns[connKey].waitingOnPong;
-          } else {
+          } else { // not politely on the second
             this.conns[connKey].terminate();
             delete this.conns[connKey];
           }
@@ -123,6 +124,7 @@ module.exports = class WsServer {
           if (this.conns[connKey].waitingOnPong++) {
             this.log(`${WARN_CHAR} still waiting on a pong from ${connKey} (${this.conns[connKey].waitingOnPong})`);
           }
+          
           this.conns[connKey].ping(Buffer.from('PING', 'utf8'));
         }
       });
@@ -155,12 +157,7 @@ module.exports = class WsServer {
 
       if (wsAvatarId in this.conns && !isReconnect) {
         this.log(`already have a connection for ${wsAvatarId} (${this.conns[wsAvatarId].waitingOnPong})! tossing it`);
-        let closeReason = 1008;
-        if ('closeReason' in this.conns[wsAvatarId]) {
-          this.log(`but has a marked close reason '${this.conns[wsAvatarId].closeReason}'!`);
-          closeReason = this.conns[wsAvatarId].closeReason;
-        }
-        this.conns[wsAvatarId].close(closeReason, 'already connected');
+        this.conns[wsAvatarId].close(1011, 'Internal Error');
       } else {
         if (isReconnect && wsAvatarId in this.conns) {
           this.conns[wsAvatarId].waitingOnPong = 0;
@@ -284,15 +281,13 @@ module.exports = class WsServer {
           if (!('lastHeartbeat' in this.conns[wsAvatarId])) {
             this.log(`no last heartbeat - ${WARN_CHAR} zombie!`);
           }
-          this.conns[wsAvatarId].closeReason = e;
+          delete this.conns[wsAvatarId];
         }
       });
 
       c.on('ping', (data) => {
         if (wsAvatarId in this.conns) {
-          this.log(`unexpected ping from ${wsAvatarId}`);
           this.conns[wsAvatarId].pong(data);
-          this.conns[wsAvatarId].waitingOnPong = 0;
         }
       });
 

@@ -4,7 +4,7 @@ const config = {
   host: isLocal ? 'http://localhost:14024' : 'http://api.fauna.computerpho.be',
   msgHost: isLocal ? 'ws://localhost:14025' : 'ws://ws.api.fauna.computerpho.be',
   cookieName: 'faunaAvatar',
-  heartbeat: 3,
+  heartbeat: 41,
   uiDefaults: {
     w: 960, 
     h: 768, 
