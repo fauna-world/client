@@ -706,7 +706,8 @@ async function mapSetup() {
         if (!avatarLoc.cur) {
           startBut.elt.value = 'Begin the journey here!';
         }
-        else if (!(isCurrentAvatarLoc = avatarLoc.cur.x === showX && avatarLoc.cur.y === showY)) {
+        else if (!(isCurrentAvatarLoc = avatarLoc.cur.x === showX && avatarLoc.cur.y === showY) &&
+          avatar.life > 0) {
           startBut.elt.value = 'Fly here';
         }
 
