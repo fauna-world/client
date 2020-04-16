@@ -494,10 +494,16 @@ async function loadMessaging(reconnect = false) {
         select('#gameclock').style('display', 'block');
         let gameDate = new Date(msgObj.payload.time);
         const ttTimeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', dateStyle: 'full' };
+        const season = _seasons[gameDate.getMonth()];
+        const boostsRev = Object.keys(gameCfg.block.boosts).reduce((acc, oKey) => ({ 
+          [gameCfg.block.boosts[oKey]]: oKey[0].toUpperCase() + oKey.substring(1), ...acc 
+        }), {});
+        const blockPref = boostsRev[season.toLowerCase()];
+        const thConj = blockPref[blockPref.length - 1] === 's' ? '' : 's';
         select('#gameclock').html(
           `<span class='tooltip'><span class='tooltiptext tooltip_bot'>` +
-          ` ${gameDate.toLocaleDateString(undefined, ttTimeOpts)}<br/>Game epoch ${msgObj.payload.epoch}</span>` +
-          _seasons[gameDate.getMonth()] + ' ' + 
+          ` <b>${boostsRev[season.toLowerCase()]}</b> thrive${thConj} in ${season}</span>` +
+          season + ' ' + 
           `${String(gameDate.getFullYear()).padStart(4, '0')}</span>`
         );
       } else if (msgObj.type === 'reconnect') {

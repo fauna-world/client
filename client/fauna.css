@@ -309,10 +309,10 @@ h3 {
 }
 
 .tooltip_bot {
-  width: 200px;
+  width: 250px;
   top: 30px;
   right: -20px;
-  margin-left: -100px;
+  margin-left: -125px;
   padding: 3px 10px;
 }
 

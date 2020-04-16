@@ -41,7 +41,7 @@
         "grassland": "summer",
         "plains": "fall",
         "mountains": "winter",
-        "1.2": null
+        "peaks": null
       }
     },
     "meta": {
