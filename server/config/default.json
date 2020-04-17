@@ -67,8 +67,8 @@
       "morningdove": {
         "displayName": "Morning Dove",
         "stats": {
-          "acuity": 2,
-          "tenacity": 5,
+          "acuity": 4,
+          "tenacity": 10,
           "mobility": 4,
           "tranquility": 3
         }
@@ -95,7 +95,7 @@
         "displayName": "Sparrow",
         "stats": {
           "acuity": 5,
-          "tenacity": 10,
+          "tenacity": 9,
           "mobility": 5,
           "tranquility": 2
         }
