@@ -101,6 +101,12 @@ module.exports = class Cache {
             genChance += genBoost;
           }
 
+          if ('rarity' in chanceItem) {
+            const rarityMod = config.game.meta.rarityTable[chanceItem.rarity-1];
+            this.log(`item has rarity ${chanceItem.rarity}, adjusting ${genChance} down by ${rarityMod}%`);
+            genChance *= 1 - (rarityMod / 100);
+          }
+
           if (genChance > (_x = Math.random())) {
             this.log(`${genChance} > ${_x}, generating '${chanceItem.name}'!`);
 
@@ -159,25 +165,31 @@ module.exports = class Cache {
         nObj.type = bTypes[Object.keys(bTypes).sort()
             .find(bk => Number.parseFloat(bk) >= nObj.n)];
 
+        if (hasPlayerPresence) {
+          nObj.count = Number.parseInt((await this.r.hget(gKey, countKey))) + 1;
+        }
+
+        if (!('count' in nObj) || nObj.count === null) {
+          nObj.count = 0;
+        }
+
         this.engine.submitWriteOp(() => {
           this.r.hset(gKey, gField, JSON.stringify(nObj));
-          this.r.hset(gKey, countKey, 1);
+          this.r.hset(gKey, countKey, nObj.count);
         });
 
         // XXX ugh, special cases are abounding...
         return hasPlayerPresence ? nObj : nObj.type;
+      } else {
+        let retVal = await getCurrentBlock();
+
+        if (retVal) {
+          let count = await (hasPlayerPresence ? this.r.hincrby(gKey, countKey, 1) : this.r.hget(gKey, countKey));
+          retVal = { ...retVal, count };
+        }
+
+        return retVal;
       }
-
-      let retVal = await getCurrentBlock();
-
-      if (retVal) {
-        // safe to do outside the write loop because its atomic in redis 
-        // (also monotonic in a single direction)
-        let count = await this.r.hincrby(gKey, countKey, 1);
-        retVal = { ...retVal, count };
-      }
-
-      return retVal;
     };
 
     // form one, get world by id (one argument)

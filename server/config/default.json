@@ -51,7 +51,8 @@
       "lifeMax": 100,
       "defaultGenerateChance": 0.01,
       "maxSeasonalDropChanceBoost": 0.1,
-      "overallMovementWeight": 2
+      "overallMovementWeight": 2,
+      "rarityTable": [10, 50, 90]
     },
     "species": {
       "hummingbird": {
@@ -149,7 +150,8 @@
           "modifiers": {
             "generate": "tenacity",
             "range": "acuity"
-          }
+          },
+          "rarity": 3
         }
       ]
     }

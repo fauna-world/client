@@ -24,7 +24,7 @@ const config = {
   },
   uiMultipliers: {
     width: 0.45,
-    height: 0.55
+    height: 0.6
   },
   preloadImages: [
     'bluebird.png',

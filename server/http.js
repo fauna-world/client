@@ -315,7 +315,7 @@ const main = async (fullInitCb) => {
           };
 
           block.type = await world.grid(x, y, block);
-          block.count = 1;
+          block.count = 0;
         }
 
         retVal.block = block;

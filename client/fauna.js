@@ -549,8 +549,10 @@ const addConnectedUx = async () => {
   let worldBanner_d = createElement('div');
   let worldBanner = createElement('h2');
   worldBanner.elt.id = 'welcomesign';
-  worldBanner.parent(worldBanner_d);
   worldBanner.elt.style.display = 'none';
+  
+  select('#howbox').parent(worldBanner_d);
+  worldBanner.parent(worldBanner_d);
 
   const goBut_d = createElement('div');
   const goButClicked = async () => {
@@ -600,11 +602,12 @@ const addConnectedUx = async () => {
     }
 
     window.history.pushState(`enter world ${worldId}`, 'Fauna', `/?worldId=${worldId}`);
-    worldBanner.html(`Welcome to<br/><span style='font-variant: small-caps'>` + 
-      `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
-      `<br/><span style='font-size: 65%;'>(<a href='/?faunaAvatar=null'>RESET!</a>)</span>`);
-    worldBanner.elt.style.display = 'block';
     select('#howbox').html("arrow keys scroll, square brackets zoom");
+    worldBanner.html("<span style='font-size: 65%;'><a href='/?faunaAvatar=null'>RESET!</a></span>");
+    /*`Welcome to<br/><span style='font-variant: small-caps'>` + 
+      `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
+      `<br/><span style='font-size: 65%;'>(<a href='/?faunaAvatar=null'>RESET!</a>)</span>`);*/
+    worldBanner.elt.style.display = 'block';
     if (jres.isNew) {
       worldBanner.elt.style.fontStyle = 'oblique';
     }
@@ -633,6 +636,7 @@ async function mapSetup() {
   let insLineBreak = Math.floor((Object.keys(ins).length / 2)) - 1;
   let ins_d = createElement('div');
   ins_d.elt.id = 'ins_d';
+  ins_d.style('display', 'none');
   Object.keys(ins).forEach((ik, i) => {
     if (i > insLineBreak) {
       createElement('br').parent(ins_d);
@@ -657,7 +661,7 @@ async function mapSetup() {
     };
   });
 
-  createElement('br').ins_d;
+  createElement('br').parent(ins_d);
  
   canvas = createCanvas(dims.w, dims.h);
   canvas.elt.style.border = '2px solid #aabbcc';
@@ -693,7 +697,7 @@ async function mapSetup() {
       }
 
       infBox.html(`<b>(${showX}, ${showY})</b> is <b>${res.block.type}</b> ` + 
-        `<br/>with <b>${res.block.count}</b> visitors` + 
+        (res.block.count > 0 ? `<br/>with <b>${res.block.count}</b> visitors` : '') + 
         (res.block.inventory.length ? ` &amp; <b>${res.block.inventory.length}</b> items!` : '') + '<br/><br/>');
 
 
@@ -751,7 +755,7 @@ async function mapSetup() {
             }
           };
 
-          if (avatar.life <= 0) {
+          if (avatar.life <= 0 || !(avatar.loc.x === showX && avatar.loc.y === showY)) {
             eatBut.elt.disabled = true;
           }
 

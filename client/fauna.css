@@ -40,13 +40,14 @@ input:disabled {
 #howbox {
   font-family: 'Courier New', Courier, monospace;
   font-size: 8pt;
+  font-weight: bold;
 }
 
 #infobox {
   position: absolute;
   font-family: 'Courier New', Courier, monospace;
   font-size: 11pt;
-  top: 300px;
+  top: 285px;
   left: 10px;
   border-radius: 5px;
 }
