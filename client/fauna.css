@@ -351,3 +351,12 @@ h3 {
   margin: 4px;
   padding: 4px;
 }
+
+.scoretable {
+  width: 100%;
+  margin: 3px;
+}
+
+.cellcent {
+  text-align: center;
+}

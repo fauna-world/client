@@ -52,7 +52,8 @@
       "defaultGenerateChance": 0.01,
       "maxSeasonalDropChanceBoost": 0.1,
       "overallMovementWeight": 2,
-      "rarityTable": [10, 50, 90]
+      "rarityTable": [10, 50, 90],
+      "allowedHighScoreTypes": ["moved", "fromOrigin"]
     },
     "species": {
       "hummingbird": {

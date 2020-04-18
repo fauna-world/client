@@ -43,11 +43,17 @@ const sanitize = (dirty, lenLim = config.app.sanitize.lengthLimit) => {
   return dirty;
 };
 
+const manhattanDist = (x1, y1, x2, y2) => Math.abs(x1 - x2) + Math.abs(y1 - y2);
+
+const manhattanDistObj = (loc1, loc2) => manhattanDist(loc1.x, loc1.y, loc2.x, loc2.y);
+
 module.exports = {
   calcShasum,
   validWorldId,
   validUuid,
   sanitize,
+  manhattanDist,
+  manhattanDistObj,
   PKGJSON,
   NAME,
   VERSION

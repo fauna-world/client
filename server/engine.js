@@ -2,7 +2,7 @@ const config = require('config');
 const moment = require('moment');
 const uuid = require('uuid').v4;
 const Cache = require('./cache');
-const { NAME } = require('./util');
+const { NAME, manhattanDist, manhattanDistObj } = require('./util');
 
 const INITIAL_GAMETIME = moment(0).subtract(1969, 'years');
 
@@ -122,7 +122,7 @@ module.exports = class Engine {
         this.log(`cur=(${curAvatar.loc.x}, ${curAvatar.loc.y}) new=(${x}, ${y})`);
         const sMax = config.game.meta.statMax;
         // get MANHATTAN? (pythag?) distance, weighted by mobility
-        const manhattan = Math.abs(x - curAvatar.loc.x) + Math.abs(y - curAvatar.loc.y);
+        const manhattan = manhattanDist(x, y, curAvatar.loc.x, curAvatar.loc.y);
         const effectiveMh = (manhattan / (0.9 + (1 / (sMax / sstats.mobility)))) * config.game.meta.overallMovementWeight;
         const ceilEffMh = Math.round(effectiveMh);
         this.log(`mobility=${sstats.mobility} manhattan=${manhattan} effectiveMh=${ceilEffMh}(${effectiveMh})`);
@@ -150,26 +150,37 @@ module.exports = class Engine {
       }
 
       if (moveAllowed) {
-        curAvatar.loc = { worldId, x, y };
+        const locObj = { worldId, x, y };
+        const isDead = curAvatar.life === 0;
+
+        if (!curAvatar.loc) {
+          curAvatar.origin = locObj;
+        }
+
+        curAvatar.loc = locObj;
         curAvatar.consumeAllowed = sstats[config.game.meta.consumptionAllowanceAttr];
+
+        if (isDead) {
+          curAvatar.scores.fromOrigin = manhattanDistObj(curAvatar.origin, curAvatar.loc);
+          this.cache.registerScores(avatarId, curAvatar.scores);
+        }
+
         await this.avatars(avatarId, curAvatar);
+
         retVal.avatar = curAvatar;
         retVal.block = await world.grid(x, y, null, curAvatar.species);
         retVal.success = true;
 
-        if (curAvatar.life === 0) {
+        if (isDead) {
           // drop 'tombstone' note; TODO: should be structured data! probably an item
           retVal.block.inventory.push({
             type: 'note',
             payload: `[RIP] A ${curAvatar.species} named <b>${curAvatar.name}</b> perished here on ` + 
               `<b>${(new Date()).toUTCString()}</b> after ` +
-              `flying a distance of <b>${curAvatar.scores.moved}</b> blocks.`,
+              `flying a total distance of <b>${curAvatar.scores.moved}</b> blocks, ` + 
+              `<b>${curAvatar.scores.fromOrigin}</b> blocks from where they began.`,
             poster: { name: NAME, species: 'game' }
           });
-
-          // TODO: need a 'distance from startpoint' score!
-          // will require tracking the avatars start point specfically
-          // good game mechanic though, encourages moving outward
 
           world.grid(x, y, retVal.block);
         }
@@ -214,6 +225,27 @@ module.exports = class Engine {
 
   submitFeedback(fBack) {
     this.cache.submitFeedback(fBack);
+  }
+
+  async queryHighScores(type, limit = 10) {
+    const _allowedTypes = config.game.meta.allowedHighScoreTypes;
+
+    let ret;
+
+    if (type === '*') {
+      ret = {};
+      for (let qType of _allowedTypes) {
+        ret[qType] = await this.queryHighScores(qType, limit);
+      }
+    } else {
+      if (_allowedTypes.indexOf(type) === -1) {
+        return null;
+      }
+      
+      ret = await this.cache.queryHighScores(type, limit);
+    }
+
+    return ret;
   }
 
   getGameTime() {

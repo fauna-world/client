@@ -38,6 +38,28 @@ module.exports = class Cache {
     this.r.lpush(`${this.prefix}:feedback`, JSON.stringify(fBack));
   }
 
+  async registerScores(avatarId, scores) {
+    Object.keys(scores).forEach(scoreKey => this.r.zadd(`${this.prefix}:scores:${scoreKey}`, scores[scoreKey], avatarId));
+  }
+
+  async queryHighScores(type, limit) {
+    const avatarIdsToObjs = async (convList) => {
+      let objList = [];
+      for (let avId of convList) {
+        if (Array.isArray(avId)) {
+          objList.push((await avatarIdsToObjs(avId)));
+        }
+        else {
+          let { name, species, scores } = await this.avatars(avId);
+          objList.push({ name, species, scores });
+        }
+      }
+      return objList;
+    };
+
+    return avatarIdsToObjs((await this.r.zrevrange(`${this.prefix}:scores:${type}`, 0, limit)));
+  }
+
   async avatars(avatarId, newAvatar) {
     if (avatarId === null && newAvatar) {
       throw new Error(`attempt to create new avatar without ID! ${JSON.stringify(newAvatar)}`);

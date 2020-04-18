@@ -10,6 +10,11 @@ const motdInterpolations = {
   VERSION
 };
 
+const scoreCatHeadings = {
+  'moved': 'Total distance flown',
+  'fromOrigin': 'Distance flown from start block'
+}
+
 // TODO: really need to return structured data to the client with these,
 // to let the client render them! way too much markup in here
 const slashCommands = {
@@ -30,7 +35,7 @@ const slashCommands = {
   help: {
     desc: 'This help. Give a command name as the sole argument for detailed information on said command.',
     detailDesc: 'Give a command name as the sole argument for detailed information on said command.',
-    exec: async (avatarId, wss, args) => {
+    exec: async (_, wss, args) => {
       if (!args.length) {
         let msg = 'The following commands are available:<br/><br/>';
         msg += Object.keys(slashCommands).map(slashName =>
@@ -43,10 +48,41 @@ const slashCommands = {
         }
 
         if (args[0] in slashCommands) {
-          return `Detailed information on '<b>/${args[0]}</b>':<br/><br/>${slashCommands[args[0]].detailDesc}`;
+          return `${slashCommands[args[0]].detailDesc}`;
         } else {
           return `No such command '<b>/${args[0]}</b>'!`;
         }
+      }
+    }
+  },
+  scores: {
+    desc: 'Query high scores',
+    detailDesc: 'Query the high scores in each category: without argument lists the top 5 scores in all categories, ' +
+      'with an argument lists the top 10 scores in that category.<br/><br/>Currently available category arguments: ' +
+      config.game.meta.allowedHighScoreTypes.map(x => `<b>${x}</b> ("${scoreCatHeadings[x]}")`).join(', ') + '',
+    exec: async (_, wss, args) => {
+      let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 5 : 10);
+
+      const renderScoresList = (type, list) => {
+        let retStr = `<table class='scoretable'><tr><td colspan=3><b>${scoreCatHeadings[type]}</b>:</td></tr>` +
+          '<tr style="text-decoration: underline;"><td class="cellcent" style="width: 10%">Pos.</td>' + 
+          '<td class="cellcent">Score</td><td>Player</td></tr>';
+
+        retStr += list.reduce((accStr, obj, idx) => {
+          return accStr + `<tr><td class='cellcent'>${idx + 1}</td><td class='cellcent'><b>${obj.scores[type]}</b></td>` +
+            `<td><img class='chatimg' src='assets/${obj.species}.png'>${obj.name}</td></tr>`;
+        }, '');
+
+        return retStr + '</table>';
+      };
+
+      if (!Array.isArray(scores)) {
+        return Object.keys(scores).reduce((accStr, sKey) => {
+          return accStr + renderScoresList(sKey, scores[sKey]) + '<br/>';
+        }, '');
+      }
+      else {
+        return renderScoresList(args[0], scores);
       }
     }
   }

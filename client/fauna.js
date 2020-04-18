@@ -226,8 +226,8 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     render();
 
     if (avatar.life === 0) {
-      alert(`You have perished after flying a distance of ${avatar.scores.moved} blocks.` + 
-        '\n\nPlease click "RESET!" to begin anew.');
+      alert(`You have perished after flying a distance of ${avatar.scores.moved} blocks, ` +
+        `${avatar.scores.fromOrigin} blocks from where you began.` + '\n\nPlease click "RESET!" to begin anew.');
     }
 
     return !uiOnly ? setBlock.block : null;
@@ -550,7 +550,7 @@ const addConnectedUx = async () => {
   let worldBanner = createElement('h2');
   worldBanner.elt.id = 'welcomesign';
   worldBanner.elt.style.display = 'none';
-  
+
   select('#howbox').parent(worldBanner_d);
   worldBanner.parent(worldBanner_d);
 
