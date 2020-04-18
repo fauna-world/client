@@ -61,7 +61,7 @@ const slashCommands = {
       'with an argument lists the top 10 scores in that category.<br/><br/>Currently available category arguments: ' +
       config.game.meta.allowedHighScoreTypes.map(x => `<b>${x}</b> ("${scoreCatHeadings[x]}")`).join(', ') + '',
     exec: async (_, wss, args) => {
-      let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 5 : 10);
+      let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 9 : 4);
 
       const renderScoresList = (type, list) => {
         let retStr = `<table class='scoretable'><tr><td colspan=3><b>${scoreCatHeadings[type]}</b>:</td></tr>` +
