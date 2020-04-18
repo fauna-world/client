@@ -30,7 +30,7 @@ The environment variable `FAUNA_ENV` dictates the postfix used for all keys in r
 | `wsPingFreq` | How often (in seconds) to send [`ping`s](https://tools.ietf.org/html/rfc6455#section-5.5.2) to connected clients. |
 | `bind` | The host address to bind the server(s) to: use `0.0.0.0` to allow external connections. |
 | `log` | The file into which combined logout will be written. |
-| `clientSite` | (optional) When set to a valid filesystem path, uses that path as the root content directory for static file hosting. Set to `../client` to automatically use the bundled client in this static hosting mode. |
+| `clientSite` | (optional) When set to a valid filesystem path, uses that path as the root content directory for static file hosting. Set to `../client` to automatically server the included client via this static hosting mode. |
 
 ### Redis
 
@@ -48,7 +48,7 @@ The environment variable `FAUNA_ENV` dictates the postfix used for all keys in r
 | --- | --- |
 | `menuAutohideDelay` | Sets the number of seconds before the console menu autohides. **Leave this `null`**, the feature is currently broken and I haven't bothered to fix it yet. |
 | `cookieName` | The name of the cookie used to save the player's avatar ID in the browser. |
-| `logChatToConsole` | If chat messages should be logged to the server console (may be change in the UI as well). |
+| `logChatToConsole` | If chat messages should be logged to the server console (may be changed in the UI as well). |
 | `sendTimeUpdatesEvery` | How often, in seconds, to emit gametime update messages to each connected client. |
 | `motdFile` | The HTML file to send to each newly-connected websocket client as the "message of the day". |
 
@@ -68,7 +68,7 @@ The environment variable `FAUNA_ENV` dictates the postfix used for all keys in r
 | Name | Description |
 | --- | --- |
 | `tickFreqHz` | The frequency, in hertz, at which the main loop runs. |
-| `timeMult` | How much more time elapses in a given duration, a multiplier. |
+| `timeMult` | How much more quickly game time elapses than real time, as a multiplier. |
 
 ### Game
 
