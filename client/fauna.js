@@ -80,6 +80,15 @@ const apiCheck = async () => {
       gameCfg = await faunaFetch('gamecfg');
       speciesSpec = gameCfg.species;
       gameMeta = gameCfg.meta;
+
+      if (!worldId && gameMeta.defaultWorldParams) {
+        Object.keys(gameMeta.defaultWorldParams).forEach(dk => {
+          dims[dk] = gameMeta.defaultWorldParams[dk];
+        });
+
+        qs['enterImmediate'] = true;
+      }
+
       connected = true;
       return text;
     }
@@ -601,12 +610,9 @@ const addConnectedUx = async () => {
       }
     }
 
-    window.history.pushState(`enter world ${worldId}`, 'Fauna', `/?worldId=${worldId}`);
+    console.log(`Entering world "${jres.world.name}" (${worldId})`);
     select('#howbox').html("arrow keys scroll, square brackets zoom");
     worldBanner.html("<span style='font-size: 65%;'><a href='/?faunaAvatar=null'>RESET!</a></span>");
-    /*`Welcome to<br/><span style='font-variant: small-caps'>` + 
-      `<a href='${persistUrl()}'>${jres.world.name}</a></span>` + 
-      `<br/><span style='font-size: 65%;'>(<a href='/?faunaAvatar=null'>RESET!</a>)</span>`);*/
     worldBanner.elt.style.display = 'block';
     if (jres.isNew) {
       worldBanner.elt.style.fontStyle = 'oblique';
@@ -755,7 +761,7 @@ async function mapSetup() {
             }
           };
 
-          if (avatar.life <= 0 || !(avatar.loc.x === showX && avatar.loc.y === showY)) {
+          if (avatar.life <= 0 || !(avatar.loc && avatar.loc.x === showX && avatar.loc.y === showY)) {
             eatBut.elt.disabled = true;
           }
 

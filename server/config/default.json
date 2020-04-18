@@ -53,7 +53,13 @@
       "maxSeasonalDropChanceBoost": 0.1,
       "overallMovementWeight": 2,
       "rarityTable": [10, 50, 90],
-      "allowedHighScoreTypes": ["moved", "fromOrigin"]
+      "allowedHighScoreTypes": ["moved", "fromOrigin"],
+      "defaultWorldParams": {
+        "seed": 27,
+        "scale": 0.05,
+        "lod": 3,
+        "falloff": 0.69
+      }
     },
     "species": {
       "hummingbird": {
