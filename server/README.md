@@ -15,7 +15,7 @@ Simply run `npm install` in this directory
 
 The environment variable `FAUNA_ENV` dictates the postfix used for all keys in redis: e.g. when set to `prod` (the default), redis keys will be prefixed by `fauna-prod`. This can be set in the `start` CLI invocation like so:
 
-> FAUNA_ENV='dev' npm start
+> `FAUNA_ENV='dev' npm start`
 
 ## Configuration
 
