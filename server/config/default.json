@@ -55,10 +55,10 @@
       "rarityTable": [10, 50, 90],
       "allowedHighScoreTypes": ["moved", "fromOrigin"],
       "defaultWorldParams": {
-        "seed": 27,
-        "scale": 0.05,
-        "lod": 3,
-        "falloff": 0.69
+        "seed": 42042,
+        "scale": 0.75,
+        "lod": 5,
+        "falloff": 0.442
       }
     },
     "species": {
