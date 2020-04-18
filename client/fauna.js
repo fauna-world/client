@@ -761,7 +761,9 @@ async function mapSetup() {
             }
           };
 
-          if (avatar.life <= 0 || !(avatar.loc && avatar.loc.x === showX && avatar.loc.y === showY)) {
+          if (avatar.life <= 0 || 
+            avatar.consumeAllowed <= 0 ||
+            !(avatar.loc && avatar.loc.x === showX && avatar.loc.y === showY)) {
             eatBut.elt.disabled = true;
           }
 
