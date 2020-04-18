@@ -76,6 +76,10 @@ const slashCommands = {
         return retStr + '</table>';
       };
 
+      if (!scores) {
+        return 'Invalid category';
+      }
+
       if (!Array.isArray(scores)) {
         return Object.keys(scores).reduce((accStr, sKey) => {
           return accStr + renderScoresList(sKey, scores[sKey]) + '<br/>';
