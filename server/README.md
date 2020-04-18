@@ -19,6 +19,8 @@ The environment variable `FAUNA_ENV` dictates the prefix used for all keys in re
 
 ## Configuration
 
+By virtue of the [`config`]() module, hirearchical configuration functionality is available according to [this rule set](https://github.com/lorenwest/node-config/wiki/Configuration-Files). Specifically of interest are [`local` files](https://github.com/lorenwest/node-config/wiki/Configuration-Files#local-files): any configuration specified in `config/local.json` will be merged with and superseed that of the default configuration (`config/default.json`). In this way it is possible to make local configuration changes without modifying any version-tracked files nor needing to commit those local configuration parameters (this file path is [already ignored](https://github.com/fauna-world/fauna/blob/master/.gitignore#L2)).
+
 ### HTTP & WebSocket servers
 
 `http.`
