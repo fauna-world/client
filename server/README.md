@@ -29,7 +29,7 @@ The environment variable `FAUNA_ENV` dictates the postfix used for all keys in r
 | `wsPort` | The WebSocket server port. |
 | `wsPingFreq` | How often (in seconds) to send [`ping`s](https://tools.ietf.org/html/rfc6455#section-5.5.2) to connected clients. |
 | `bind` | The host address to bind the server(s) to: use `0.0.0.0` to allow external connections. |
-| `log` | The file into which combined logout will be written. |
+| `log` | The file into which combined logging output will be written. |
 | `clientSite` | (optional) When set to a valid filesystem path, uses that path as the root content directory for static file hosting. Set to `../client` to serve the included client via this static hosting mode. |
 
 ### Redis
