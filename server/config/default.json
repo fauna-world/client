@@ -56,7 +56,7 @@
       "allowedHighScoreTypes": ["moved", "fromOrigin"],
       "defaultWorldParams": {
         "seed": 42042,
-        "scale": 0.75,
+        "scale": 0.075,
         "lod": 5,
         "falloff": 0.442
       }
