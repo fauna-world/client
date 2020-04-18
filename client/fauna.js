@@ -702,9 +702,7 @@ async function mapSetup() {
       }
 
       infBox.html(`<b>(${showX}, ${showY})</b> is <b>${res.block.type}</b> ` + 
-        (res.block.count > 0 ? `<br/>with <b>${res.block.count}</b> visitors` : '') + 
-        (res.block.inventory.length ? ` &amp; <b>${res.block.inventory.length}</b> items!` : '') + '<br/><br/>');
-
+        (res.block.count > 0 ? `<br/>with <b>${res.block.count}</b> visitor${res.block.count == 1 ? '' : 's'}` : '') + '<br/><br/>');
 
       let isCurrentAvatarLoc = false;
 
