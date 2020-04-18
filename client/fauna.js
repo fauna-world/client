@@ -45,15 +45,14 @@ if (location.search) {
 
 // w/o body is GET, with is POST
 const faunaFetch = async (stub, body) => {
-  let opts = { 
-    headers: {
-      'Content-type': 'application/json'
-    }
-  };
+  let opts = {};
 
   if (body) {
     opts.method = 'POST';
+    opts.headers = { 'Content-type': 'application/json' };
     opts.body = JSON.stringify(body);
+  } else {
+    opts.method = 'GET';
   }
 
   let res = await fetch(`${config.host}/${stub}`, opts);
