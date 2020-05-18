@@ -113,17 +113,15 @@ const ourNoise = (x, y) => noise(
 );
 
 const colorXform = (noiseVal) => {
-  const _x2 = '_x2' in qs ? Number.parseInt(qs['_x2']) : 0;
   const breaks = {
-    0.2: (brk, nv, invNv) => [0+_x2, (64+_x2) * invNv, (192+_x2) * invNv],
-    0.4: (brk, nv, invNv) => [128 - (64 * invNv), 212 * invNv, 92 * nv],
-    0.6: (brk, nv, invNv) => [255 - (128 * invNv), 255 - (92 * invNv), 255 - (192 * invNv)],//[212 * invNv, 192 * invNv, 128 * invNv]//[212 * nv, 192 * nv, 128 * nv]
-    0.8: (brk, nv, invNv) => [255 * nv, 255 * nv, 255 * nv * (1.1 * invNv)]
+    0.2: (_, invNv) => [0, 64 * invNv, 192 * invNv],
+    0.4: (nv, invNv) => [128 - (64 * invNv), 212 * invNv, 92 * nv],
+    0.6: (_, invNv) => [255 - (128 * invNv), 255 - (92 * invNv), 255 - (192 * invNv)],
+    0.8: (nv, invNv) => [255 * nv, 255 * nv, 255 * nv * (1.1 * invNv)]
   };
 
   let bk = Object.keys(breaks).sort().find(bk => noiseVal < Number.parseFloat(bk));
-  let bkFl = Number.parseFloat(bk);
-  return bk ? breaks[bk](bkFl, noiseVal, ((1 / bkFl) * noiseVal)) : Array(3).fill(noiseVal * 255); 
+  return bk ? breaks[bk](noiseVal, ((1 / Number.parseFloat(bk)) * noiseVal)) : Array(3).fill(noiseVal * 255);
 };
 
 const render = () => {
@@ -488,9 +486,7 @@ async function loadMessaging(reconnect = false) {
   });
 
   const _seasons = gameCfg.block.seasons;
-  const _months = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
-  wsConn.addEventListener('message', () => {
+  wsConn.addEventListener('message', (event) => {
     try {
       let msgObj = JSON.parse(event.data);
 
@@ -501,7 +497,6 @@ async function loadMessaging(reconnect = false) {
       } else if (msgObj.type === 'gametime') {
         select('#gameclock').style('display', 'block');
         let gameDate = new Date(msgObj.payload.time);
-        const ttTimeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', dateStyle: 'full' };
         const season = _seasons[gameDate.getMonth()];
         const boostsRev = Object.keys(gameCfg.block.boosts).reduce((acc, oKey) => ({ 
           [gameCfg.block.boosts[oKey]]: oKey[0].toUpperCase() + oKey.substring(1), ...acc 
@@ -610,7 +605,8 @@ const addConnectedUx = async () => {
     }
 
     console.log(`Entering world "${jres.world.name}" (${worldId})`);
-    select('#howbox').html("arrow keys scroll, square brackets zoom");
+    select('#howbox').html("arrow keys scroll, square brackets zoom" + 
+      ('debug' in qs ? `<br/><br/>"${jres.world.name}" (${worldId})` : ''));
     worldBanner.html("<span style='font-size: 65%;'><a href='/?faunaAvatar=null'>RESET!</a></span>");
     worldBanner.elt.style.display = 'block';
     if (jres.isNew) {
@@ -641,7 +637,9 @@ async function mapSetup() {
   let insLineBreak = Math.floor((Object.keys(ins).length / 2)) - 1;
   let ins_d = createElement('div');
   ins_d.elt.id = 'ins_d';
-  ins_d.style('display', 'none');
+  if (!('debug' in qs)) {
+    ins_d.style('display', 'none');
+  }
   Object.keys(ins).forEach((ik, i) => {
     if (i > insLineBreak) {
       createElement('br').parent(ins_d);
