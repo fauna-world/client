@@ -8,7 +8,7 @@ const config = {
   uiDefaults: {
     w: 960, 
     h: 768, 
-    res: 16, 
+    res: 20, 
     scaleStep: 0.01,
     seed: 42042,
     scale: 0.075,
@@ -19,12 +19,11 @@ const config = {
     ss: 75, 
     scrollStep: 1, 
     chatHist: 10,
-    boxSelectBorderColor: [255, 255, 0],
-    visitedBorderColor: [64, 64, 64]
+    boxSelectBorderColor: [255, 255, 0]
   },
   uiMultipliers: {
     width: 0.45,
-    height: 0.7
+    height: 0.85
   },
   preloadImages: [
     'bluebird.png',
@@ -32,6 +31,9 @@ const config = {
     'crow.png',
     'hummingbird.png',
     'morningdove.png',
-    'sparrow.png'
+    'sparrow.png',
+    'tombstone.png',
+    'item.png',
+    'note.png'
   ]
 };

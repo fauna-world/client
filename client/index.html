@@ -33,8 +33,17 @@
       <br/>
       <div id='attrexplainerbox' style='text-align: center;'>
         <br/>
-        <h3 id='attrexplainerhdr'>Attribute Information</h3>
-        <div id='attrexplainer'>
+        <h3>Gameplay Information</h3>
+        <div style="width: 100%; padding: 0 5%;">
+          <span class='explainertext'>Live long & prosper. Movement drains life & eating restores it.</span><br/><br/>
+          <span class='explainertext'>Items are only generated in the presence of a player, and species statistics affect the chance of generation.</span><br/><br/>
+          <span class='explainertext'>Each terrian type (except 'peaks') has a primary season during which item drops are more likely regardless of species attributes.</span><br/><br/>
+        </div>
+        <br/><br/>
+        <h3>Attribute Information</h3>
+        <span class='explainertext'>All with a maximum of <span id='attrmax'>?</span> except <span class='statname'>tranquility</span>, 
+          with a maximum of <span id='tranqmax'>?</span>.</span>
+        <div class='attrexplainer'>
           <ul>
             <li>acuity &mdash; <span class='explainertext'>affects the maxiumum possible value of dropped items</span></li>
             <li>mobility &mdash; <span class='explainertext'>affects how movement drains fauna life</span></li>
@@ -42,15 +51,10 @@
             <li>tranquility &mdash; <span class='explainertext'>affects how much the fauna can consume at once</span></li>
           </ul>
         </div>
-        <span class='explainertext'>All with a maximum of <span id='attrmax'>?</span> except <span class='statname'>tranquility</span>, 
-          with a maximum of <span id='tranqmax'>?</span>.</span>
-        <br/><br/><br/>
-        <h3 id='attrexplainerhdr'>Gameplay Information</h3>
-        <div style="width: 100%; padding: 0 5%;">
-          <span class='explainertext'>Live long & prosper. Movement drains life & eating restores it.</span><br/><br/>
-          <span class='explainertext'>Items are only dropped in the presence of a player, and species statistics affect the those drops.</span><br/><br/>
-          <span class='explainertext'>Each terrian type (except 'peaks') has a primary season during which item drops are more likely regardless of species attributes.</span><br/><br/>
-        </div>
+        <br/><br/>
+        <h3>Item Information</h3>
+        <span class='explainertext'>All below are <u>base</u> values</span>
+        <div class='attrexplainer explainertext' id='itembox'></div>
       </div>
     </div>
   </div>

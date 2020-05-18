@@ -327,12 +327,12 @@ h3 {
   font-size: 70%;
 }
 
-#attrexplainer {
+.attrexplainer {
   text-align: left;
   margin: 15px;
 }
 
-#attrexplainer ul {
+.attrexplainer ul {
   margin-left: -10px;
 }
 
@@ -353,8 +353,12 @@ h3 {
 }
 
 .scoretable {
-  width: 100%;
+  min-width: 80%;
   margin: 3px;
+}
+
+.scoretable td {
+  padding: 3px;
 }
 
 .cellcent {

@@ -96,6 +96,7 @@ module.exports = class Engine {
           moved: 0
         };
         newAvatar.consumeAllowed = config.game.species[newAvatar.species].stats[config.game.meta.consumptionAllowanceAttr];
+        this.cache.incrLifetimeMetric('avatar-births', 1);
       }
 
       return this.submitPromisedWriteOpReturningId(avatarId, newAvatar, 
@@ -121,16 +122,13 @@ module.exports = class Engine {
 
         this.log(`cur=(${curAvatar.loc.x}, ${curAvatar.loc.y}) new=(${x}, ${y})`);
         const sMax = config.game.meta.statMax;
-        // get MANHATTAN? (pythag?) distance, weighted by mobility
         const manhattan = manhattanDist(x, y, curAvatar.loc.x, curAvatar.loc.y);
         const effectiveMh = (manhattan / (0.9 + (1 / (sMax / sstats.mobility)))) * config.game.meta.overallMovementWeight;
         const ceilEffMh = Math.round(effectiveMh);
         this.log(`mobility=${sstats.mobility} manhattan=${manhattan} effectiveMh=${ceilEffMh}(${effectiveMh})`);
 
-
         // should there be seasonal movement variation?
-
-        // penalize crossing terrian gradient, weighted by agility
+        // penalize crossing terrian gradient, weighted by agility?
         //    this is hard! if pythag: how do we know which blocks are crossed?
         //    if manhattan, how do we allow users to select route? do we?
         //    could try to use stddev of all blocks transited as easy measure of
@@ -139,11 +137,14 @@ module.exports = class Engine {
         //  instead for diff mechanic (seasonal variation)
 
         // if 'movement allowed remaining' > above calc'ed score; allow move
-        if (curAvatar.life >= ceilEffMh) {
-          this.log(`CAN DO! ${curAvatar.life} >= ${ceilEffMh}`);
+        if (curAvatar.life >= ceilEffMh || curAvatar.life === 1) {
           moveAllowed = true;
           curAvatar.life -= ceilEffMh;
+          if (curAvatar.life < 0) curAvatar.life = 0;
           curAvatar.scores.moved += manhattan;
+          this.cache.incrLifetimeMetric('life-lost-flying', ceilEffMh);
+          this.cache.incrLifetimeMetric('distance-flown', manhattan);
+        } else {
         }
       } else {
         moveAllowed = true;
@@ -172,17 +173,25 @@ module.exports = class Engine {
         retVal.success = true;
 
         if (isDead) {
-          // drop 'tombstone' note; TODO: should be structured data! probably an item
+          const _poster = { name: NAME, species: 'game' };
+          
           retVal.block.inventory.push({
             type: 'note',
             payload: `[RIP] A ${curAvatar.species} named <b>${curAvatar.name}</b> perished here on ` + 
               `<b>${(new Date()).toUTCString()}</b> after ` +
               `flying a total distance of <b>${curAvatar.scores.moved}</b> blocks, ` + 
               `<b>${curAvatar.scores.fromOrigin}</b> blocks from where they began.`,
-            poster: { name: NAME, species: 'game' }
+            poster: _poster
           });
 
+          retVal.block.inventory.push({
+            type: 'tombstone',
+            payload: { avatar: curAvatar },
+            poster: _poster
+          })
+
           world.grid(x, y, retVal.block);
+          this.cache.incrLifetimeMetric('avatar-deaths', 1);
         }
       }
     }
@@ -204,6 +213,9 @@ module.exports = class Engine {
           // XXX: this whole thing should be atomic! (pipelined?)
           block.inventory = block.inventory.filter(itemCont => itemCont.payload.id !== itemId);
           await world.grid(x, y, block);
+
+          this.cache.incrLifetimeMetric('life-gained-eating', foundItem.stat);
+          this.cache.incrLifetimeMetric('items-eaten', 1);
 
           curAvatar.life += foundItem.stat;
           curAvatar.consumeAllowed--;

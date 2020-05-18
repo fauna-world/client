@@ -3,7 +3,6 @@ const path = require('path');
 const config = require('config');
 const fastify = require('fastify');
 const faker = require('faker');
-const uuid = require('uuid').v4;
 const app = fastify();
 
 const WsServer = require('./ws');
@@ -13,11 +12,9 @@ const {
   validWorldId,
   validUuid,
   sanitize,
-  PKGJSON,
   NAME,
   VERSION
 } = require('./util');
-const { ALERT_CHAR } = require('./style');
 
 const rtInfo = {
   counts: {
@@ -60,6 +57,9 @@ const resumeConsoleLogging = () => {
   loggingEnabled = true;
 };
 
+let _logReqStart;
+const logReqStart = () => { _logReqStart = process.hrtime.bigint(); };
+
 const logReq = (req, route) => {
   ++rtInfo.counts.requests;
   let realIps = [req.ip];
@@ -91,8 +91,15 @@ const logReq = (req, route) => {
     }
   }
 
+  let _reqEnd;
+  if (_logReqStart !== undefined) {
+    _reqEnd = Math.round(Number(process.hrtime.bigint() - _logReqStart) / 1e6);
+    engine.cache.incrLifetimeMetric('milliseconds-working', _reqEnd);
+  }
+  
   log(`${(new Date).toISOString()} ${realIps.join(';').padEnd(16, ' ')} ` + 
-    `${req.raw.method.padEnd(4, ' ')} ${req.raw.url} "${req.raw.headers['user-agent']}"`);
+    `${req.raw.method.padEnd(4, ' ')} ${String(_reqEnd === undefined ? 0 : _reqEnd).padStart(4, ' ')}ms ` +
+    `${req.raw.url} "${req.raw.headers['user-agent']}"`);
 };
 
 const log = (str, isReq = false) => {
@@ -237,11 +244,12 @@ const main = async (fullInitCb) => {
           log(`Routed${(isIndex ? ' as index' : '')}: GET ${routePath} -> ${resolved} ('${mime}')`);
 
           const routeResponder = async (req, reply) => {
-            logReq(req, routePath);
+            logReqStart(req, routePath);
             reply
               .code(200)
               .header('Content-Type', mime)
-              .send(serveStaticAsset(routePath, resolved));
+              .send(serveStaticAsset(routePath, resolved))
+              .then(() => logReq(req, routePath));
           };
 
           app.get(routePath, routeResponder);
@@ -260,14 +268,15 @@ const main = async (fullInitCb) => {
     setupRoutesForDir(cfgResolved);
   }
 
-  app.get('/ping', async (req, reply) => {
+  app.get('/ping', async (req) => {
+    logReqStart();
     logReq(req, '/ping');
     return VERSION;
   });
 
-  app.post('/world/enter', async (req, reply) => {
+  app.post('/world/enter', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/world/enter');
+    logReqStart(req, '/world/enter');
 
     let wId = retVal.worldId = calcShasum(JSON.stringify(req.body));
     let world = await engine.worlds(wId);
@@ -283,21 +292,23 @@ const main = async (fullInitCb) => {
     }
 
     retVal.world = world;
+    logReq(req, '/world/enter');
     return retVal;
   });
 
-  app.get('/world/:worldId', async (req, reply) => {
+  app.get('/world/:worldId', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/world/...');
+    logReqStart(req, '/world/...');
     if (validWorldId(req.params.worldId)) {
       retVal.world = await engine.worlds(req.params.worldId);
     }
+    logReq(req, '/world/...');
     return retVal;
   });
 
-  app.get('/world/:worldId/block/:x/:y', async (req, reply) => {
+  app.get('/world/:worldId/block/:x/:y', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/world/../block');
+    logReqStart(req, '/world/../block');
 
     if (validWorldId(req.params.worldId)) {
       let wId = req.params.worldId;
@@ -322,12 +333,13 @@ const main = async (fullInitCb) => {
       }
     }
 
+    logReq(req, '/world/../block');
     return retVal;
   });
 
-  app.post('/world/:worldId/block/:x/:y/add', async (req, reply) => {
+  app.post('/world/:worldId/block/:x/:y/add', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/world/../block/../add');
+    logReqStart(req, '/world/../block/../add');
 
     try {
       if (validWorldId(req.params.worldId)) {
@@ -348,51 +360,61 @@ const main = async (fullInitCb) => {
     }
 
     log(retVal);
+    logReq(req, '/world/../block/../add');
     return retVal;
   });
 
-  /** DEPRECATED, remove soon **/
-  app.get('/species', async (req, reply) => {
+  app.get('/world/:worldId/blocks/:types/inbb/:fromX/:fromY/:toX/:toY', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/species');
-    log(`${ALERT_CHAR} deprecated request!`);
-    return Object.assign({}, retVal, { species: config.game.species });
+    logReqStart(req, '/world/../blocks/../inbb');
+
+    try {
+      if (validWorldId(req.params.worldId)) {
+        let world = await engine.worlds(req.params.worldId);
+        let { types, fromX, fromY, toX, toY } = req.params;
+        let typesList = types.split(',');
+        for (_t of typesList) {
+          retVal[_t] = await world.listBlocksOfTypeInBoundingBox(_t, fromX, fromY, toX, toY);
+        }
+      }
+    } catch (err) {
+      log(`ERR: ${err}`);
+      retVal.error = true;
+    }
+
+    logReq(req, '/world/../blocks/../inbb');
+    return retVal;
   });
 
-  /** DEPRECATED, remove soon **/
-  app.get('/meta', async (req, reply) => {
+  app.get('/gamecfg', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/meta');
-    log(`${ALERT_CHAR} deprecated request!`);
-    return Object.assign({}, retVal, { species: config.game.meta });
-  });
-
-  app.get('/gamecfg', async (req, reply) => {
-    let retVal = { error: false };
+    logReqStart();
     logReq(req, '/gamecfg');
     return Object.assign({}, config.game);
   });
 
-  app.post('/avatar', async (req, reply) => {
+  app.post('/avatar', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/avatar');
+    logReqStart(req, '/avatar');
     retVal.avatarId = await engine.avatars(null, sanitize(req.body, config.app.avatarNameLengthLimit));
+    logReq(req, '/avatar');
     return retVal;
   });
 
-  app.get('/avatar/:avatarId', async (req, reply) => {
+  app.get('/avatar/:avatarId', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/avatar/..');
+    logReqStart(req, '/avatar/..');
     if (validUuid(req.params.avatarId)) {
       retVal.avatar = await engine.avatars(req.params.avatarId);
     }
+    logReq(req, '/avatar/..');
     return retVal;
   });
 
   /// reuse this for item consumption! if body has an itemId field!
-  app.post('/avatar/:avatarId/loc', async (req, reply) => {
+  app.post('/avatar/:avatarId/loc', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/avatar/../loc/..');
+    logReqStart(req, '/avatar/../loc/..');
     let { avatarId } = req.params;
     let { worldId, x, y } = req.body;
     if (validUuid(avatarId) && validWorldId(worldId)) {
@@ -402,6 +424,7 @@ const main = async (fullInitCb) => {
         retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
       }
     }
+    logReq(req, '/avatar/../loc/..');
     return retVal;
   });
 
@@ -409,12 +432,13 @@ const main = async (fullInitCb) => {
     'firstname': faker.name.firstName
   };
 
-  app.get('/util/faker/:type', async (req, reply) => {
+  app.get('/util/faker/:type', async (req) => {
     let retVal = { error: false };
-    logReq(req, '/util/faker');
+    logReqStart(req, '/util/faker');
     if (req.params.type in fakers) {
       retVal[req.params.type] = fakers[req.params.type]();
     }
+    logReq(req, '/util/faker');
     return retVal;
   });
 };
@@ -424,7 +448,7 @@ const stop = () => {
   app.close();
 };
 
-const getRuntimeInfo = () => {
+const getRuntimeInfo = async () => {
   let retCopy = Object.assign({}, rtInfo, { 
     uptime: (Date.now() - serverStartTime),
     memory: process.memoryUsage()
@@ -441,6 +465,8 @@ const getRuntimeInfo = () => {
   rtInfo.counts.connections.current = wsServer.getConnectedCount();
 
   retCopy.engine = engine.getRuntimeInfo();
+
+  retCopy.lifetime = await engine.cache.getAllLifetimeMetrics();
 
   return retCopy;
 };

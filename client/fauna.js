@@ -124,16 +124,42 @@ const colorXform = (noiseVal) => {
   return bk ? breaks[bk](noiseVal, ((1 / Number.parseFloat(bk)) * noiseVal)) : Array(3).fill(noiseVal * 255);
 };
 
-const render = () => {
+const _renderDebounceTime = 100;
+let _renderDebounce;
+let _lastSelLoc;
+let _origCellFill;
+
+const refreshVisible = async (bb) => {
+  const q = `world/${worldId}/blocks/item,note,tombstone/inbb/${bb.from.x}/${bb.from.y}/${bb.to.x}/${bb.to.y}`;
+  let qresp = await faunaFetch(q);
+  mapLocs = {};
+  Object.keys(qresp).forEach((typeKey) => {
+    qresp[typeKey].forEach(ts => mapLocs[`${ts[0]},${ts[1]}`] = preloads[`${typeKey}.png`]);
+  });
+  render(true);
+};
+
+const render = (fromRefresher = false) => {
   if (!mapReady) {
     return;
+  }
+
+  let rd = { w: dims.w / dims.res, h: dims.h / dims.res };
+
+  clearTimeout(_renderDebounce);
+  if (!fromRefresher) {
+    _renderDebounce = setTimeout(() => {
+      refreshVisible({ 
+        from: { x: -dims.xoff, y: -dims.yoff }, 
+        to: { x: Math.ceil(rd.w - dims.xoff), y: Math.ceil(rd.h - dims.yoff) }
+      });
+    }, _renderDebounceTime);
   }
 
   clear();
   noiseDetail(dims.lod, dims.falloff);
   noiseSeed(dims.seed);
 
-  let rd = { w: dims.w / dims.res, h: dims.h / dims.res };
   curMap = [];
   for (let x = 0; x < rd.w; x++) {
     if (curMap[x] === undefined) {
@@ -144,7 +170,8 @@ const render = () => {
       curMap[x][y] = ourNoise(x, y);
       let mapCoords = [x - dims.xoff, y - dims.yoff];
       let mapCoordStr = `${mapCoords[0]},${mapCoords[1]}`;
-      let fillObj = colorXform(curMap[x][y]);
+      let fillOrig = colorXform(curMap[x][y]);
+      let fillObj = fillOrig;
 
       if (mapCoordStr in mapLocs) {
         let luFill = mapLocs[mapCoordStr];
@@ -156,11 +183,24 @@ const render = () => {
 
       let properDims = [x * dims.res, y * dims.res, dims.res, dims.res];
 
+      if (_lastSelLoc && _lastSelLoc.length) {
+        let _lsSplit = _lastSelLoc.split(',');
+        // TODO: should probably remove wierd multi-function fill set in
+        // setSelectedLocation() below and *just* use this!
+        if (_lsSplit[0] == mapCoords[0] && _lsSplit[1] == mapCoords[1]) {
+          _borderCell(null, config.uiDefaults.boxSelectBorderColor);
+        }
+      }
+
+      if (avatarLoc && avatarLoc.cur && avatarLoc.cur.x === mapCoords[0] && avatarLoc.cur.y === mapCoords[1]) {
+        fillObj = preloads[`${avatar.species}.png`];
+      }
+
       if (Array.isArray(fillObj)) {
         fill(...fillObj);
         rect(...properDims);
       } else if (typeof fillObj === 'object') {
-        fill(255, 255, 255, 255);
+        fill(...fillOrig);
         rect(...properDims);
         image(fillObj, ...properDims);
       } else {
@@ -172,9 +212,6 @@ const render = () => {
     }
   }
 };
-
-let _lastSelLoc;
-let _origCellFill;
 
 const updateAvatarInfo = (x, y) => {    
   let statsDiv = select('#avatarstatsdiv');
@@ -218,7 +255,6 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     if (avatarLoc.cur) {
       const curLocStr = `${avatarLoc.cur.x},${avatarLoc.cur.y}`
       avatarLoc.prev = { loc: avatarLoc.cur, fill: mapLocs[curLocStr] };
-      mapLocs[curLocStr] = (_, origFill) => _borderCell(origFill, config.uiDefaults.visitedBorderColor);
     }
 
     if (!uiOnly) {
@@ -232,6 +268,7 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     render();
 
     if (avatar.life === 0) {
+      avatarLoc = undefined;
       alert(`You have perished after flying a distance of ${avatar.scores.moved} blocks, ` +
         `${avatar.scores.fromOrigin} blocks from where you began.` + '\n\nPlease click "RESET!" to begin anew.');
     }
@@ -317,11 +354,12 @@ const gs = (key, allow, cb, val) => {
 
 const allow_any = (_) => true;
 const allow_pos = (v) => v > 0;
+const allow_pos_offs = (v) => v <= 0;
 
 const ins = {
-  xoff: gs.bind(null, 'xoff', allow_any, null),
-  yoff: gs.bind(null, 'yoff', allow_any, null),
-  res: gs.bind(null, 'res', (v) => v >= 6 && (v % 2) === 0, null),
+  xoff: gs.bind(null, 'xoff', allow_pos_offs, null),
+  yoff: gs.bind(null, 'yoff', allow_pos_offs, null),
+  res: gs.bind(null, 'res', (v) => v >= 14 && (v % 2) === 0, null),
   scroll: gs.bind(null, 'ss', allow_pos, null),
   scrollStep: gs.bind(null, 'scrollStep', allow_pos, null),
   seed: gs.bind(null, 'seed', allow_any, null),
@@ -676,6 +714,7 @@ async function mapSetup() {
     const showX = Math.ceil(xAdj - dims.xoff);
     const showY = Math.ceil(yAdj - dims.yoff);
     const oNoise = ourNoise(xAdj, yAdj);
+    const mlStr = `${showX},${showY}`;
     
     const oBg = colorXform(oNoise);
     let oFgCA = oBg.map(x => 255 - x);
@@ -687,6 +726,14 @@ async function mapSetup() {
     const oFg = [oFgC, oFgC, oFgC];
 
     setSelectedLocation(showX, showY);
+
+    const updateItemIcon = (_items) => {
+      if (_items.length > 0 && !mapLocs[mlStr]) {
+        mapLocs[mlStr] = preloads['item.png'];
+      } else if (_items.length === 0 && mapLocs[mlStr]) {
+        delete mapLocs[mlStr];
+      }
+    };
 
     const loadBlock = async (worldId, showX, showY, preloadedBlock) => {
       let res;
@@ -737,6 +784,8 @@ async function mapSetup() {
         itemsDiv.parent(infBox);
         itemsDiv.html('<u>Available items</u>:<br/>');
         itemsDiv.elt.id = 'itemsdiv';
+
+        updateItemIcon(itemsToRender);
         itemsToRender.forEach(itemCont => {
           let item = itemCont.payload;
           const itemDiv = createElement('div');
@@ -748,8 +797,10 @@ async function mapSetup() {
           eatBut.elt.id = `eat_item_${item.id.substring(0, 8)}`;
 
           eatBut.elt.onclick = async () => {
+            eatBut.elt.disabled = true;
             let res = await faunaFetch(`avatar/${avatarId}/loc`, { worldId: worldId, x: showX, y: showY, itemId: item.id });
             if (res.success) {
+              updateItemIcon(res.block.inventory);
               avatar = res.avatar;
               updateAvatarInfo(showX, showY);
               loadBlock(worldId, showX, showY, res.block);
@@ -802,11 +853,15 @@ async function mapSetup() {
       // only allow note submission if the player is at the block
       if (isCurrentAvatarLoc) {
         const submitNote = () => {
+          const { name, species } = avatar;
           faunaFetch(`${rootQStr}/add`, {
             type: 'note',
             payload: noteText.value(),
-            poster: Object.assign({}, avatar, { id: avatarId })
-          }).then(() => setTimeout(() => loadBlock(worldId, showX, showY), 100));
+            poster: Object.assign({ name, species }, { id: avatarId })
+          }).then(() => {
+            setTimeout(() => loadBlock(worldId, showX, showY), 100);
+            updateItemIcon([noteText.value()]);
+          });
         };
 
         let noteDiv = createElement('div');
@@ -951,6 +1006,14 @@ async function userPrompt() {
     });
     shtml += '</tr></table>';
     sbox.html(shtml);
+
+    let ibox = select('#itembox');
+    let ihtml = '<ul>';
+    gameCfg.items.consumable.forEach(item => {
+      ihtml += `<li>"<b>${item.name}</b>": <i>${(item.generate * 1e32) / 1e30}%</i> chance, ` +
+        `boosts <b>${item.affect}</b> by ${item.range[0]}-${item.range[1]}</li>`;
+    });
+    ibox.html(ihtml + '</ul>');
   } else {
     await mapSetup();
   }

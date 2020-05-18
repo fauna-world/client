@@ -13,7 +13,27 @@ const motdInterpolations = {
 const scoreCatHeadings = {
   'moved': 'Total distance flown',
   'fromOrigin': 'Distance flown from start block'
-}
+};
+
+const renderList = (heading, hdrEles, list, itemRenderer) => {
+  let retStr = `<table class='scoretable'><tr><td colspan=${hdrEles.length}><b>${heading}</b>:</td></tr>` +
+    `<tr style="text-decoration: underline;">${hdrEles.join('')}</tr>`;
+
+  retStr += list.reduce(itemRenderer, '');
+
+  return retStr + '</table>';
+};
+
+const scoresItemRenderer = (type, accStr, obj, idx) => {
+  return accStr + `<tr><td class='cellcent'>${idx + 1}</td><td class='cellcent'><b>${obj.scores[type]}</b></td>` +
+    `<td><img class='chatimg' src='assets/${obj.species}.png'>${obj.name}</td></tr>`;
+};
+
+const scoreHeaders = ['<td class="cellcent" style="width: 10%">Pos.</td>', 
+  '<td class="cellcent">Score</td>', '<td>Player</td>'];
+const renderScoresList = (type, list) => {
+  return renderList(scoreCatHeadings[type], scoreHeaders, list, scoresItemRenderer.bind(null, type));
+};
 
 // TODO: really need to return structured data to the client with these,
 // to let the client render them! way too much markup in here
@@ -63,19 +83,6 @@ const slashCommands = {
     exec: async (_, wss, args) => {
       let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 9 : 4);
 
-      const renderScoresList = (type, list) => {
-        let retStr = `<table class='scoretable'><tr><td colspan=3><b>${scoreCatHeadings[type]}</b>:</td></tr>` +
-          '<tr style="text-decoration: underline;"><td class="cellcent" style="width: 10%">Pos.</td>' + 
-          '<td class="cellcent">Score</td><td>Player</td></tr>';
-
-        retStr += list.reduce((accStr, obj, idx) => {
-          return accStr + `<tr><td class='cellcent'>${idx + 1}</td><td class='cellcent'><b>${obj.scores[type]}</b></td>` +
-            `<td><img class='chatimg' src='assets/${obj.species}.png'>${obj.name}</td></tr>`;
-        }, '');
-
-        return retStr + '</table>';
-      };
-
       if (!scores) {
         return 'Invalid category';
       }
@@ -88,6 +95,17 @@ const slashCommands = {
       else {
         return renderScoresList(args[0], scores);
       }
+    }
+  },
+  stats: {
+    desc: 'Server stats',
+    detailDesc: 'Get statistics about the Fauna game server',
+    exec: async (_, wss) => {
+      const metrics = await wss.engine.cache.getAllLifetimeMetrics();
+      return renderList('Server lifetime statistics', ['<td>Metric</td>', '<td>Value</td>'], 
+        Object.keys(metrics).sort(), (accStr, obj) => {
+          return accStr + `<tr><td>${obj}</td><td>${metrics[obj]}</td></tr>`;
+        });
     }
   }
 };

@@ -31,15 +31,31 @@ module.exports = class Cache {
   }
 
   async logChatMsg(msgObj) {
+    this.incrLifetimeMetric('chat-messages', 1);
     this.r.lpush(`${this.prefix}:chat:${msgObj.to}`, JSON.stringify(msgObj));
   }
 
   async submitFeedback(fBack) {
+    this.incrLifetimeMetric('feedback-submitted', 1);
     this.r.lpush(`${this.prefix}:feedback`, JSON.stringify(fBack));
   }
 
   async registerScores(avatarId, scores) {
     Object.keys(scores).forEach(scoreKey => this.r.zadd(`${this.prefix}:scores:${scoreKey}`, scores[scoreKey], avatarId));
+  }
+
+  async incrLifetimeMetric(metricName, incrBy) {
+    this.r.hincrby(`${this.prefix}:lifetime`, metricName, incrBy);
+  }
+
+  async getAllLifetimeMetrics() {
+    const rkey = `${this.prefix}:lifetime`;
+    const ltMetricKeys = await this.r.hkeys(rkey);
+    let retVal = {};
+    for (const ltKey of ltMetricKeys) {
+      retVal[ltKey] = await this.r.hget(rkey, ltKey);
+    }
+    return retVal;
   }
 
   async queryHighScores(type, limit) {
@@ -79,10 +95,65 @@ module.exports = class Cache {
   }
 
   async worlds(worldId, newWorld) {
-    const key = `${this.prefix}:worlds`;
+    const worldKey = `${this.prefix}:worlds:${worldId}`;
+
+    const bmXYInChunk = (rowWidth, x, y) => 
+      [Math.floor(Number(x) / rowWidth), Math.floor(Number(y) / rowWidth)];
+
+    const bmXYBitPos = (rowWidth, c, x, y) => 
+      (Number(x) - (c[0] * rowWidth)) + ((Number(y) - (c[1] * rowWidth)) * rowWidth);
+
+    const bmKey = (bmType, cX, cY) => `${worldKey}:bitmaps:${bmType}:${cX}:${cY}`;
+
+    const bmChunkBitGetSet = async (bmType, cXcY, bitPos, setVal = undefined) => {
+      let [cX, cY] = cXcY;
+      if (setVal === undefined) {
+        return this.r.getbit(bmKey(bmType, cX, cY), bitPos);
+      } else {
+        return this.r.setbit(bmKey(bmType, cX, cY), bitPos, Number(setVal));
+      }
+    };
+
+    const bmGetSet = async (rowWidth, bmType, x, y, setVal = undefined) => {
+      const chunk = bmXYInChunk(rowWidth, x, y);
+      bmChunkBitGetSet(bmType, chunk, bmXYBitPos(rowWidth, chunk, x, y), setVal);
+    };
+
+    const bmListBlocksOfTypeInBoundingBox = async (rowWidth, bmType, fromX, fromY, toX, toY) => {
+      const _st = process.hrtime.bigint();
+      const [fcX, fcY] = bmXYInChunk(rowWidth, fromX, fromY);
+      const [tcX, tcY] = bmXYInChunk(rowWidth, toX, toY);
+      let retList = [];
+
+      for (let wcX = fcX; wcX <= tcX; wcX++) {
+        for (let wcY = fcY; wcY <= tcY; wcY++) {
+          let chunkBytes = await this.r.getBuffer(bmKey(bmType, wcX, wcY));
+
+          if (!chunkBytes || chunkBytes.length < 1) {
+            continue;
+          }
+
+          for (let cByte = 0; cByte < chunkBytes.length; cByte++) {
+            for (let bit = 0; bit < 8; bit++) {
+              if (chunkBytes[cByte] & (1 << bit)) {
+                let ix = (wcX * rowWidth) + (7 - bit) + ((cByte % (rowWidth / 8)) * 8);
+                let iy = ((((7 - bit) + (cByte * 8)) - ix + (wcX * rowWidth)) / rowWidth) + (wcY * rowWidth);
+                retList.push([ix, iy]);
+              }
+            }
+          }
+        }
+      }
+
+      this.log(`bmListBlocksOfTypeInBoundingBox(${rowWidth}, ${bmType}, ${fromX}, ${fromY}, ${toX}, ${toY}) ` +
+        ` took ${Number(process.hrtime.bigint() - _st) / 1e6} ms`);
+      return retList;
+    };
+
+    const bitmaps = { getSet: undefined };
 
     const gridGetSet = async (ggsWorldId, x, y, nObj, hasPlayerPresence) => {
-      let gKey = `${this.prefix}:grid:${ggsWorldId}`;
+      let gKey = `${worldKey}:grid`;
       let gField = `${x}:${y}`;
       let countKey = gField + ':count';
 
@@ -160,6 +231,9 @@ module.exports = class Cache {
             };
 
             this.log(`generated: ${JSON.stringify(newItem)}`);
+            if (chanceItem.name === 'Breadcrumb Vending Machine') {
+              this.incrLifetimeMetric('breadcrumb-vending-machines', 1);
+            }
             generated.push(newItem);
           } else {
             this.log(`${genChance} <= ${_x}, NOT generating '${chanceItem.name}'!`);
@@ -174,6 +248,7 @@ module.exports = class Cache {
           }
 
           this.log(`pushing ${generatedItems.length} onto block ${ggsWorldId}:${x},${y} inventory`);
+          this.incrLifetimeMetric('items-generated', generatedItems.length);
           nObj.inventory.push(...generatedItems);
         }
       }
@@ -196,8 +271,13 @@ module.exports = class Cache {
         }
 
         this.engine.submitWriteOp(() => {
+          bitmaps.getSet('exists', x, y, true);
+          ['tombstone', 'note', 'item'].forEach(chkType => {
+            bitmaps.getSet(chkType, x, y, nObj.inventory.find(x => x.type === chkType) !== undefined);
+          });
           this.r.hset(gKey, gField, JSON.stringify(nObj));
           this.r.hset(gKey, countKey, nObj.count);
+          this.incrLifetimeMetric('blocks-changed', 1);
         });
 
         // XXX ugh, special cases are abounding...
@@ -217,14 +297,16 @@ module.exports = class Cache {
     // form one, get world by id (one argument)
     // if DNE in redis, will return null
     if (worldId && !newWorld) {
-      let rWorld = JSON.parse(await this.r.hget(key, worldId));
+      let rWorld = JSON.parse(await this.r.hget(worldKey, worldId));
       if (rWorld) {
         rWorld.grid = gridGetSet.bind(null, worldId);
+        bitmaps.getSet = bmGetSet.bind(null, rWorld.params.chunkRowWidth);
+        rWorld.listBlocksOfTypeInBoundingBox = bmListBlocksOfTypeInBoundingBox.bind(null, rWorld.params.chunkRowWidth);
       }
       return rWorld;
     }
 
-    let curWorlds = await this.r.hgetall(key);
+    let curWorlds = await this.r.hgetall(worldKey);
 
     // form two, get all worlds (no arguments)
     if (!worldId) {
@@ -243,9 +325,11 @@ module.exports = class Cache {
       return null;
     }
 
+    newWorld.params.chunkRowWidth = config.redis.bitmaps.chunkRowWidth;
+
     this.log(`writing world ${worldId}:`);
     this.log(newWorld);
 
-    return this.r.hset(key, worldId, JSON.stringify(newWorld));
+    return this.r.hset(worldKey, worldId, JSON.stringify(newWorld));
   }
 };

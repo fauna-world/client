@@ -1,6 +1,6 @@
 module.exports = {
   runTool: async (opts) => {
-    console.log(opts.server.getRuntimeInfo());
+    console.log((await opts.server.getRuntimeInfo()));
   },
   displayName: () => 'Examine'
 };

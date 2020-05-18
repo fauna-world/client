@@ -8,7 +8,10 @@
     "clientSite": null
   },
   "redis": {
-    "url": "env:REDIS_URL"
+    "url": "env:REDIS_URL",
+    "bitmaps": {
+      "chunkRowWidth": 64
+    }
   },
   "app": {
     "menuAutohideDelay": null,
@@ -86,7 +89,7 @@
           "acuity": 4,
           "tenacity": 9,
           "mobility": 7,
-          "tranquility": 1
+          "tranquility": 2
         }
       },
       "butterfly": {
@@ -95,7 +98,7 @@
           "acuity": 3,
           "tenacity": 5,
           "mobility": 10,
-          "tranquility": 3
+          "tranquility": 1
         }
       },
       "sparrow": {
@@ -113,7 +116,7 @@
           "acuity": 10,
           "tenacity": 9,
           "mobility": 2,
-          "tranquility": 2
+          "tranquility": 3
         }
       }
     },
