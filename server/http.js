@@ -94,7 +94,6 @@ const logReq = (req, route) => {
   let _reqEnd;
   if (_logReqStart !== undefined) {
     _reqEnd = Math.round(Number(process.hrtime.bigint() - _logReqStart) / 1e6);
-    engine.cache.incrLifetimeMetric('milliseconds-working', _reqEnd);
   }
   
   log(`${(new Date).toISOString()} ${realIps.join(';').padEnd(16, ' ')} ` + 
