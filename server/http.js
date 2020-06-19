@@ -15,6 +15,7 @@ const {
   NAME,
   VERSION
 } = require('./util');
+const noise = require('./noise');
 
 const rtInfo = {
   counts: {
@@ -202,7 +203,8 @@ const main = async (fullInitCb) => {
       '.png': 'image/png',
       '.css': 'text/css',
       '.html': 'text/html; charset=utf-8',
-      '.js': 'text/javascript'
+      '.js': 'text/javascript',
+      '.ico': 'image/ico'
     };
 
     const serveStaticAsset = (routePath, fullPath) => {
@@ -319,13 +321,12 @@ const main = async (fullInitCb) => {
         let block = await world.grid(x, y);
 
         if (!block) {
-          block = { 
-            n: Number.parseFloat(req.query.n),
-            inventory: []
+          block = {
+            inventory: [],
+            count: 0
           };
 
           block.type = await world.grid(x, y, block);
-          block.count = 0;
         }
 
         retVal.block = block;
@@ -415,14 +416,41 @@ const main = async (fullInitCb) => {
     let retVal = { error: false };
     logReqStart(req, '/avatar/../loc/..');
     let { avatarId } = req.params;
-    let { worldId, x, y } = req.body;
+    let { worldId, x, y, action } = req.body;
+
     if (validUuid(avatarId) && validWorldId(worldId)) {
       if (req.body.itemId) {
-        retVal = await engine.consumeItem(avatarId, worldId, x, y, req.body.itemId);
+        if (!action) {
+          retVal.error = true;
+          retVal.message = 'no action specified';
+        } else {
+          const acts = {
+            consume: engine.consumeItem.bind(engine),
+            pickup: engine.pickupItem.bind(engine),
+            drop: engine.dropItem.bind(engine)
+          };
+
+          if (action in acts) {
+            retVal = await acts[action](avatarId, worldId, x, y, req.body.itemId);
+          }
+        }
       } else {
-        retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
+        if (!action) {
+          retVal = await engine.setAvatarLoc(avatarId, worldId, x, y);
+        } else {
+          if (action === 'create') {
+            if (req.body.payload) {
+              retVal = await engine.createAt(avatarId, worldId, x, y, req.body.payload);
+            }
+          }
+        }
       }
     }
+
+    if (retVal.error) {
+      this.log(`req error: ${JSON.stringify(retVal)}`);
+    }
+
     logReq(req, '/avatar/../loc/..');
     return retVal;
   });

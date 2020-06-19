@@ -1,6 +1,7 @@
 const config = require('config');
 const uuid = require('uuid').v4;
 const Redis = require('ioredis');
+const noise = require('./noise');
 
 module.exports = class Cache {
   constructor (opts) {
@@ -24,6 +25,11 @@ module.exports = class Cache {
       let keys = await this.r.keys(`${this.prefix}*`);
       this.log(`Connected to redis://${this.r.options.host}:${this.r.options.port}; ` + 
         `'${this.prefix}*' has ${keys.length} keys; up ${this.r.serverInfo.uptime_in_days} days`);
+
+      this.consItems = Object.keys(config.game.items).reduce((acc, curType) => {
+        acc.push(config.game.items[curType].map(cur => Object.assign(cur, { type: curType })));
+        return acc;
+      }, []).flat();
     } catch(err) {
       this.log('redis connection failed: ' + err);
       throw err;
@@ -119,7 +125,7 @@ module.exports = class Cache {
       bmChunkBitGetSet(bmType, chunk, bmXYBitPos(rowWidth, chunk, x, y), setVal);
     };
 
-    const bmListBlocksOfTypeInBoundingBox = async (rowWidth, bmType, fromX, fromY, toX, toY) => {
+    const bmListBlocksOfTypeInBoundingBox = async (rowWidth, bmType, fromX, fromY, toX, toY, strict = false) => {
       const _st = process.hrtime.bigint();
       const [fcX, fcY] = bmXYInChunk(rowWidth, fromX, fromY);
       const [tcX, tcY] = bmXYInChunk(rowWidth, toX, toY);
@@ -143,6 +149,20 @@ module.exports = class Cache {
             }
           }
         }
+      }
+
+      // strict includes only blocks within the specified bounding box and sorts them in CW order;
+      // otherwise, all blocks within the *chunks* the specified bound box *hits* are included
+      if (strict) {
+        retList = retList.filter(x => x[0] >= fromX && x[1] >= fromY && x[0] <= toX && x[1] <= toY);
+        // sort in clockwise order
+        retList.sort((a, b) => {
+          const xDiff = a[0] - b[0];
+          if (xDiff === 0) {
+            return a[1] - b[1];
+          }
+          return xDiff;
+        });
       }
 
       this.log(`bmListBlocksOfTypeInBoundingBox(${rowWidth}, ${bmType}, ${fromX}, ${fromY}, ${toX}, ${toY}) ` +
@@ -170,9 +190,7 @@ module.exports = class Cache {
           this.log(`block ${gField} is ${curBlock.type}, has '${curGMonth}' boost: using value ${seasonGenChanceBoost}`);
         }
 
-        // only 'consumable' items right now!
-        let consItems = config.game.items.consumable;
-        let generatedItems = consItems.reduce((generated, chanceItem) => {
+        let generatedItems = this.consItems.reduce((generated, chanceItem) => {
           // should nerf genChance based on inverse distance traveled: better chance the farther the distance
           // (means we need to pass in distance to this func, too!)
           // (would prevent one-block-at-a-time longevity technique)
@@ -186,12 +204,15 @@ module.exports = class Cache {
 
           let _x;
           let genChance = (chanceItem.generate || config.game.meta.defaultGenerateChance) + seasonGenChanceBoost;
-          if (chanceItem.modifiers.generate) {
-            let genBoostStat = config.game.species[hasPlayerPresence].stats[chanceItem.modifiers.generate];
-            // gen boost allows a *max* of 5% boost to genChance with max genBoostStat
-            let genBoost = (_x = Math.random()) * (0.05 / (config.game.meta.statMax / genBoostStat));
-            this.log(`modifying ${genChance} with ${genBoost} -> ${genChance + genBoost} (stat=${genBoostStat}, rand=${_x})`);
-            genChance += genBoost;
+          if (chanceItem.modifiers) {
+            const sStats = config.game.species[hasPlayerPresence].stats;
+            if (chanceItem.modifiers.generate && chanceItem.modifiers.generate in sStats) {
+              let genBoostStat = sStats[chanceItem.modifiers.generate];
+              // gen boost allows a *max* of 5% boost to genChance with max genBoostStat
+              let genBoost = (_x = Math.random()) * (0.05 / (config.game.meta.statMax / genBoostStat));
+              this.log(`modifying ${genChance} with ${genBoost} -> ${genChance + genBoost} (stat=${genBoostStat}, rand=${_x})`);
+              genChance += genBoost;
+            }
           }
 
           if ('rarity' in chanceItem) {
@@ -204,7 +225,7 @@ module.exports = class Cache {
             this.log(`${genChance} > ${_x}, generating '${chanceItem.name}'!`);
 
             let rangeBoost = 0;
-            if (chanceItem.modifiers.range) {
+            if (chanceItem.modifiers && chanceItem.modifiers.range) {
               this.log(`modifying range based on ${chanceItem.modifiers.range} ` +
                 `-> ${config.game.species[hasPlayerPresence].stats[chanceItem.modifiers.range]}`);
               let rangeBoostStat = config.game.species[hasPlayerPresence].stats[chanceItem.modifiers.range];
@@ -213,20 +234,20 @@ module.exports = class Cache {
               rangeBoost = Math.ceil(rangeBoost);
             }
 
-            const rMin = chanceItem.range[0];
-            const rMax = chanceItem.range[1] + rangeBoost;
-            let genStatFromRange = (Math.random() * (rMax - rMin)) + rMin;
-            this.log(`genStatFromRange = ${genStatFromRange} [${rMin}, ${rMax}] -> ${Math.ceil(genStatFromRange)}`);
+            let genStatFromRange = 1;
+            if (chanceItem.range) {
+              const rMin = chanceItem.range[0];
+              const rMax = chanceItem.range[1] + rangeBoost;
+              genStatFromRange = (Math.random() * (rMax - rMin)) + rMin;
+              this.log(`genStatFromRange = ${genStatFromRange} [${rMin}, ${rMax}] -> ${Math.ceil(genStatFromRange)}`);
+            }
 
             const newItem = { 
               type: 'item',
-              payload: {
-                type: 'consumable',
-                name: chanceItem.name,
-                affect: chanceItem.affect,
+              payload: Object.assign({}, chanceItem, {
                 stat: Math.ceil(genStatFromRange),
                 id: uuid()
-              },
+              }),
               localTs: Date.now()
             };
 
@@ -258,6 +279,11 @@ module.exports = class Cache {
         // also, the following effectively 'hardcodes' terrian type
         // into the block object, and that's ultimately because this deferred
         // write ... really need to fix that.
+        if (!('n' in nObj)) {
+          const nWorld = await this.worlds(ggsWorldId);
+          nObj.n = noise(x, y, nWorld);
+        }
+
         let bTypes = config.game.block.types;
         nObj.type = bTypes[Object.keys(bTypes).sort()
             .find(bk => Number.parseFloat(bk) >= nObj.n)];
@@ -268,6 +294,10 @@ module.exports = class Cache {
 
         if (!('count' in nObj) || nObj.count === null) {
           nObj.count = 0;
+        }
+
+        if (!nObj.permanents) {
+          nObj.permanents = {};
         }
 
         this.engine.submitWriteOp(() => {
@@ -300,7 +330,7 @@ module.exports = class Cache {
       let rWorld = JSON.parse(await this.r.hget(worldKey, worldId));
       if (rWorld) {
         rWorld.grid = gridGetSet.bind(null, worldId);
-        bitmaps.getSet = bmGetSet.bind(null, rWorld.params.chunkRowWidth);
+        rWorld.bitmapsGetSet = bitmaps.getSet = bmGetSet.bind(null, rWorld.params.chunkRowWidth);
         rWorld.listBlocksOfTypeInBoundingBox = bmListBlocksOfTypeInBoundingBox.bind(null, rWorld.params.chunkRowWidth);
       }
       return rWorld;

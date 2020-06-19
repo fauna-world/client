@@ -47,6 +47,14 @@ const manhattanDist = (x1, y1, x2, y2) => Math.abs(x1 - x2) + Math.abs(y1 - y2);
 
 const manhattanDistObj = (loc1, loc2) => manhattanDist(loc1.x, loc1.y, loc2.x, loc2.y);
 
+const scoreCatHeadings = {
+  'moved': 'Total distance flown',
+  'from-origin': 'Distance flown from start block',
+  'gardenspaces': 'Number of gardenspaces captured',
+  'gardenspace-blocks': 'Total blocks captured in all owned gardenspaces',
+  'nests-built': 'Total nests built'
+};
+
 module.exports = {
   calcShasum,
   validWorldId,
@@ -54,6 +62,7 @@ module.exports = {
   sanitize,
   manhattanDist,
   manhattanDistObj,
+  scoreCatHeadings,
   PKGJSON,
   NAME,
   VERSION

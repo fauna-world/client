@@ -20,6 +20,7 @@ let avatarLoc = { cur: undefined, prev: undefined };
 let loadingScr = { e: undefined, p: undefined };
 let preloads = {};
 let mapLocs = {};
+let mapLocsPerm = {};
 
 const _hiliteCell = (origFill, hiliteFactor = 1.05) => origFill.map(x => x * hiliteFactor);
 const _loliteCell = (origFill, hiliteFactor = 1.15) => origFill.map(x => x / hiliteFactor);
@@ -43,6 +44,10 @@ if (location.search) {
   }, {});
 }
 
+const debugAppendMsg = (msg) => { if ('debug' in qs) { select('#howbox').html(select('#howbox').html() + `<pre>${msg}</pre>`); } };
+
+const debugAppendObj = (obj) => debugAppendMsg(JSON.stringify(obj, null, 2));
+
 // w/o body is GET, with is POST
 const faunaFetch = async (stub, body) => {
   let opts = {};
@@ -56,12 +61,14 @@ const faunaFetch = async (stub, body) => {
   }
 
   let res = await fetch(`${config.host}/${stub}`, opts);
-  
+  let ret = await res.json();
+
   if (res.status !== 200) {
+    console.log(ret);
+    debugAppendObj(ret);
     throw new Error('faunaFetch');
   }
 
-  let ret = await res.json();
 
   if (ret.error) {
     throw new Error('faunaFetch server');
@@ -103,14 +110,15 @@ Object.keys(dims).forEach(dk => {
   }
 });
 
+if ('debug' in qs) {
+  config.uiMultipliers.height *= 0.90;
+}
+
 if ('worldId' in qs) {
   worldId = qs.worldId;
 }
 
-const ourNoise = (x, y) => noise(
-  (x - dims.xoff) * dims.scale, 
-  (y - dims.yoff) * dims.scale
-);
+const showNoise = (x, y) => noise(x * dims.scale, y * dims.scale);
 
 const colorXform = (noiseVal) => {
   const breaks = {
@@ -128,14 +136,50 @@ const _renderDebounceTime = 100;
 let _renderDebounce;
 let _lastSelLoc;
 let _origCellFill;
+let _refreshGSBuffer = [];
 
 const refreshVisible = async (bb) => {
-  const q = `world/${worldId}/blocks/item,note,tombstone/inbb/${bb.from.x}/${bb.from.y}/${bb.to.x}/${bb.to.y}`;
+  const typeList = config.filters.permanents.concat(config.filters.items);
+  const q = `world/${worldId}/blocks/${typeList.join(',')}/inbb/${bb.from.x}/${bb.from.y}/${bb.to.x}/${bb.to.y}`;
   let qresp = await faunaFetch(q);
+
   mapLocs = {};
+
   Object.keys(qresp).forEach((typeKey) => {
-    qresp[typeKey].forEach(ts => mapLocs[`${ts[0]},${ts[1]}`] = preloads[`${typeKey}.png`]);
+    let mlRef = config.filters.permanents.find(x => x === typeKey) ? mapLocsPerm : mapLocs;
+
+    qresp[typeKey].forEach(ts => {
+      let imgRef = typeKey;
+
+      if (typeKey === 'gardenspace') {
+        if (_refreshGSBuffer.length === 0) {
+          for (let i = 0; i < config.gs.numImgs; i++) {
+            _refreshGSBuffer.push(`gardenspace_${i}`);
+          }
+      
+          // very simple shuffle
+          for (let i = 0; i < config.gs.numImgs * config.gs.shufPasses; i++) {
+            const ii = i % config.gs.shufPasses;
+            let Ri = Math.floor(Math.random() * config.gs.numImgs);
+            const tmp = _refreshGSBuffer[ii];
+            _refreshGSBuffer[ii] = _refreshGSBuffer[Ri];
+            _refreshGSBuffer[Ri] = tmp;
+          }
+        }
+
+        imgRef = _refreshGSBuffer.shift();
+      }
+
+      const mlStr = `${ts[0]},${ts[1]}`;
+
+      if (!(mlStr in mlRef)) {
+        mlRef[`${ts[0]},${ts[1]}`] = preloads[`${imgRef}.png`];
+      }
+    });
   });
+
+  mapLocs = Object.assign(mapLocs, mapLocsPerm);
+
   render(true);
 };
 
@@ -167,8 +211,8 @@ const render = (fromRefresher = false) => {
     }
 
     for (let y = 0; y < rd.h; y++) {
-      curMap[x][y] = ourNoise(x, y);
       let mapCoords = [x - dims.xoff, y - dims.yoff];
+      curMap[x][y] = showNoise(mapCoords[0], mapCoords[1]);
       let mapCoordStr = `${mapCoords[0]},${mapCoords[1]}`;
       let fillOrig = colorXform(curMap[x][y]);
       let fillObj = fillOrig;
@@ -213,7 +257,7 @@ const render = (fromRefresher = false) => {
   }
 };
 
-const updateAvatarInfo = (x, y) => {    
+const updateAvatarInfo = async (x, y, block) => {
   let statsDiv = select('#avatarstatsdiv');
   let html = '<table id="avstattable">';
   html += '<tr><td class="avstatname">Block:</td>';
@@ -225,6 +269,88 @@ const updateAvatarInfo = (x, y) => {
   html += `</tr></table>`;
   statsDiv.html(html);
   statsDiv.style('display', 'block');
+
+  if (avatar.inventory.length > 0) {
+    let woodAmt = 0;
+    const avInvTable = select('#avinvtable');
+    avInvTable.html('');
+
+    avatar.inventory.forEach((item) => {
+      const idStub = item.id.substring(0, 8);
+      const tRow = createElement('tr');
+      tRow.parent(avInvTable);
+
+      const baseTds = ['name', 'stat', 'affect', 'drop'].reduce((aHash, iType) => {
+        const tdItem = createElement('td');
+        tdItem.class = 'avinv_' + iType;
+        tdItem.elt.id = `tditem_${iType}_${idStub}`;
+        if (iType in item) {
+          tdItem.html(iType === 'name' ? getItemSig(item) : item[iType]);
+        }
+        tdItem.parent(tRow);
+        aHash[iType] = tdItem;
+        return aHash;
+      }, {});
+
+      baseTds.stat.html(`<b>+${baseTds.stat.html()}</b>`);
+
+      baseTds.drop.elt.id = `td_avdrop_${idStub}`;
+      attachButtonForItem(item, baseTds.drop, x, y, 'drop_inventory');
+
+      woodAmt += item.affect === 'wood' ? item.stat : 0;
+    });
+
+    const tr = createElement('tr');
+    tr.parent(avInvTable);
+    let td = createElement('td');
+    td.elt.colSpan = 2;
+    td.parent(tr);
+    td.html('&nbsp;');
+
+    if (woodAmt >= gameCfg.create.nest.requires.wood) {
+      if (!block && worldId) {
+        const resp = await blockLoader(worldId, x, y);
+        if (resp) {
+          block = resp.block;
+        }
+      }
+
+      if (block && Object.entries(block.permanents).length === 0) {
+        const mnBut = createElement('a', 'Build Nest');
+        mnBut.elt.href = '#';
+        mnBut.elt.onclick = async () => {
+          await avatarActionOnClickHandler(x, y, null, 'create', 'nest');
+        };
+
+        const sT = createElement('span');
+        sT.class('tooltip');
+
+        td.html('');
+        sT.parent(td);
+        mnBut.parent(sT);
+
+        const sTTxt = createElement('span');
+        sTTxt.class('tooltiptext tooltip_bot2');
+        sTTxt.html(`Requires <u>${gameCfg.create.nest.requires.wood}</u> wood`);
+        sTTxt.parent(sT);
+      }
+    }
+
+    td = createElement('td');
+    td.elt.colSpan = 2;
+    td.parent(tr);
+
+    const dropAll = createElement('a', 'Drop All');
+    dropAll.elt.href = '#';
+    dropAll.elt.onclick = async () => {
+      for (let invItem of avatar.inventory) {
+        await avatarActionOnClickHandler(x, y, invItem.id, 'drop');
+      }
+    };
+    dropAll.parent(td);
+  }
+
+  select('#avatarinvtable').style('display', avatar.inventory.length > 0 ? 'block' : 'none');
 }
 
 const setAvatarLoc = async (x, y, uiOnly = false) => {
@@ -264,13 +390,13 @@ const setAvatarLoc = async (x, y, uiOnly = false) => {
     avatarLoc.cur = { x, y };
     mapLocs[newLoc] = preloads[`${avatar.species}.png`];
 
-    updateAvatarInfo(x, y);
+    await updateAvatarInfo(x, y, setBlock ? setBlock.block : undefined);
     render();
 
     if (avatar.life === 0) {
       avatarLoc = undefined;
       alert(`You have perished after flying a distance of ${avatar.scores.moved} blocks, ` +
-        `${avatar.scores.fromOrigin} blocks from where you began.` + '\n\nPlease click "RESET!" to begin anew.');
+        `${avatar.scores['from-origin']} blocks from where you began.` + '\n\nPlease click "RESET!" to begin anew.');
     }
 
     return !uiOnly ? setBlock.block : null;
@@ -458,10 +584,18 @@ async function loadAvatar() {
   let avbox = select('#avbox');
   let imgFileName = `${avatar.species}.png`;
 
-  avbox.html(`<a href='${persistUrl(true)}'>` +
+  avbox.html(
+    '<table class="avtable"><tr><td class="avtablecell">' +
+    `<a href='${persistUrl(true)}'>` +
     `<img src='assets/${imgFileName}' class='speciesavatar' /></a>` +
-    `<div class='speciesname'>${avatar.name}</div>` + 
-    '<div id="avatarstatsdiv" class="dispnone"></div>');
+    `<div class='speciesname'>${avatar.name}</div>` +
+    '</td><td class="avtablecell">' + 
+    '<div id="avatarstatsdiv" class="dispnone"></div>' +
+    '</td></tr><tr><td colspan="2"><div id="avatarinvtable" class="dispnone">' +
+    '<h5><u>Inventory</u></h5>' +
+    '<table id="avinvtable">' +
+    '</table>' +
+    '</div>');
 
   avbox.elt.style.display = 'block';
 
@@ -473,7 +607,7 @@ async function loadAvatar() {
 let lm_backoff = 0;
 let lm_handle;
 async function loadMessaging(reconnect = false) {
-  console.log(`loadMessaging(${reconnect}), bo=${lm_backoff}`);
+  if ('debug' in qs) { console.log(`loadMessaging(${reconnect}), bo=${lm_backoff}`); }
   let wsConn = new WebSocket(`${config.msgHost}/?${config.cookieName}=${avatarId}` + 
     (reconnect ? '&rc=1' : ''));
   ++lm_backoff;
@@ -545,7 +679,8 @@ async function loadMessaging(reconnect = false) {
           `<span class='tooltip'><span class='tooltiptext tooltip_bot'>` +
           ` <b>${boostsRev[season.toLowerCase()]}</b> thrive${thConj} in ${season}</span>` +
           season + ' ' + 
-          `${String(gameDate.getFullYear()).padStart(4, '0')}</span>`
+          `${String(gameDate.getFullYear()).padStart(4, '0')}</span>` +
+          '<img src="assets/clock.png" width=24 style="margin-right: 5px; margin-left: 10px;"/>'
         );
       } else if (msgObj.type === 'reconnect') {
         console.log(`successful reconnect at ${(new Date(msgObj.localTs)).toISOString()} (${(new Date()).toISOString()})`);
@@ -625,7 +760,7 @@ const addConnectedUx = async () => {
       wSpec[inLock] = e.value();
     });
 
-    if (avatar.loc) {
+    if (avatar && avatar.loc) {
       worldId = avatar.loc.worldId;
       dims.xoff = -avatar.loc.x;
       dims.yoff = -avatar.loc.y;
@@ -650,12 +785,12 @@ const addConnectedUx = async () => {
     if (jres.isNew) {
       worldBanner.elt.style.fontStyle = 'oblique';
     }
+
+    await loadAvatar();
+    loadMessaging();
   };
 
-  await loadAvatar();
-  loadMessaging();
-
-  if (!avatar.loc && !('enterImmediate' in qs || 'worldId' in qs)) {
+  if (avatar && !avatar.loc && !('enterImmediate' in qs || 'worldId' in qs)) {
     createElement('br').parent(goBut_d);
     const goBut = createElement('input');
     goBut.parent(goBut_d);
@@ -667,6 +802,291 @@ const addConnectedUx = async () => {
   } else {
     await goButClicked();
   }
+};
+
+const updateItemIcon = (x, y, _items) => {
+  const mlStr = `${x},${y}`;
+  if (_items.length > 0 && !mapLocs[mlStr]) {
+    mapLocs[mlStr] = preloads['item.png'];
+  } else if (_items.length === 0 && mapLocs[mlStr]) {
+    delete mapLocs[mlStr];
+  }
+};
+
+const buttonsSpec = {
+  consumable: {
+    title: 'Eat',
+    type: 'input',
+    subtype: 'submit',
+    class: 'eatbut',
+    action: 'consume',
+    isDisabled: () => (avatar.consumeAllowed <= 0 || avatar.inventory.length > 0)
+  },
+  raw_material: {
+    title: 'Pick up',
+    type: 'input',
+    subtype: 'submit',
+    class: 'eatbut pickupbut',
+    action: 'pickup',
+    isDisabled: () => (avatar.inventory.length === gameCfg.meta.inventoryMax)
+  },
+  drop_inventory: {
+    title: 'X',
+    type: 'a',
+    class: '',
+    action: 'drop',
+    isDisabled: () => (avatar.inventory.length === 0)
+  }
+};
+
+async function avatarActionOnClickHandler(showX, showY, itemId, action, payload) {
+  let req = { 
+    worldId: worldId, 
+    x: showX, 
+    y: showY, 
+    itemId: itemId,
+    action: action
+  };
+
+  if (itemId) {
+    req.itemId = itemId;
+  }
+
+  if (payload) {
+    req.payload = payload;
+  }
+
+  let res = await faunaFetch(`avatar/${avatarId}/loc`, req);
+
+  if (res.success) {
+    avatar = res.avatar;
+    updateItemIcon(showX, showY, res.block.inventory);
+    updateAvatarInfo(showX, showY, res.block);
+    setBlock(worldId, showX, showY, res);
+  } else {
+    debugAppendMsg('button error!');
+    console.log('button error!');
+  }
+}
+
+function attachButtonForItem(item, parentEle, showX, showY, overrideType) {
+  let realType = item.type;
+  if (overrideType) {
+    realType = overrideType;
+  }
+
+  if (!(realType in buttonsSpec)) {
+    console.log(`'${type} not spec'ed for buttonsSpec!`);
+    return;
+  }
+
+  let bs = buttonsSpec[realType];
+
+  let but;
+
+  if (bs.type === 'input') {
+    but = createInput(bs.title, bs.subtype);
+  } else {
+    but = createElement(bs.type, bs.title);
+    if (bs.type === 'a') {
+      but.elt.href = '#';
+    }
+  }
+  
+  but.parent(parentEle);
+  but.class(bs.class);
+  but.elt.id = `${realType.replace(/\s+/g, '').toLowerCase()}_${item.id.substring(0, 8)}`;
+
+  but.elt.addEventListener('click', async () => {
+    but.elt.disabled = true;
+    await avatarActionOnClickHandler(showX, showY, item.id, bs.action);
+  });
+
+  but.elt.disabled = bs.isDisabled() || avatar.life <= 0 || 
+    !(avatar.loc && avatar.loc.x === showX && avatar.loc.y === showY);
+
+  return but;
+}
+
+const getItemSig = (item) => item.image ? 
+        `<span class="tooltip"><img src="assets/${item.image}" alt="${item.name}" width="32" />` +
+        `<span class="tooltiptext tooltip_top2">${item.name}</span>` : `"${item.name}"`;
+
+const blockLoader = async (worldId, showX, showY) => {
+  let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
+  return faunaFetch(`${rootQStr}`);
+};
+
+const setBlock = async (worldId, showX, showY, preloadedBlock) => {
+  if (!preloadedBlock) {
+    throw new Error('nope');
+  }
+
+  let res = preloadedBlock;
+  const infBox = select('#infobox');
+
+  infBox.html(`<span class="tooltip"><span class="tooltiptext tooltip_top2">(${showX}, ${showY})`+
+    `</span><h3 style="font-variant: small-caps;">${res.block.type}</h3></span></br>` + 
+    (res.block.count > 0 ? `<span style="font-variant: small-caps;">` +
+      `<b>${res.block.count}</b> visitor${res.block.count == 1 ? '' : 's'}` : '') + '</span><br/>');
+
+  if (res.block && res.block.permanents.nest) {
+    const nestEle = createElement('div');
+    const nestOwner = await faunaFetch(`avatar/${res.block.permanents.nest.owner}`);
+
+    nestEle.html('<table style="width: 100%; margin-bottom: -5px;"><tr><td style="text-align: right">' +
+      '<img src="assets/nest.png" width="100" /></td><td style="text-align: left">' +
+      `Built by<br/><b>${nestOwner.avatar.name} the ${nestOwner.avatar.species}</b></br>on ` +
+      `<b>${(new Date(res.block.permanents.nest.created)).toLocaleDateString()}` +
+      '</td></tr></table>');
+
+    nestEle.parent(infBox);
+  }
+
+  if (res.block && res.block.permanents.gardenspace) {
+    const gsEle = createElement('div');
+    const gsOwner = await faunaFetch(`avatar/${res.block.permanents.gardenspace.owner}`);
+
+    gsEle.html('<table style="width: 100%; margin-bottom: -5px;"><tr><td style="text-align: right">' +
+      '<img src="assets/gardenspace.png" width="75" style="margin-top: -25px;"/></td><td style="text-align: left">' +
+      `Territory captured by<br/><b>${gsOwner.avatar.name} the ${gsOwner.avatar.species}</b></br>on ` +
+      `<b>${(new Date(res.block.permanents.gardenspace.created)).toLocaleDateString()}` +
+      '</td></tr></table>');
+
+    gsEle.parent(infBox);
+  }
+
+  createElement('br').parent(infBox);
+
+  let isCurrentAvatarLoc = false;
+
+  if (avatarLoc) {
+    let startBut = createElement('input');
+    startBut.elt.id = 'beginbut';
+    startBut.elt.type = 'submit';
+    startBut.elt.onclick = async () => {
+      startBut.elt.parentNode.removeChild(startBut.elt);
+      setBlock(worldId, showX, showY, { block: await setAvatarLoc(showX, showY) });
+    };
+
+    if (!avatarLoc.cur) {
+      startBut.elt.value = 'Begin the journey here!';
+    }
+    else if (!(isCurrentAvatarLoc = avatarLoc.cur.x === showX && avatarLoc.cur.y === showY) &&
+      avatar.life > 0) {
+      startBut.elt.value = 'Fly here';
+    }
+
+    if (startBut.value().length > 0) {
+      startBut.parent(infBox);
+    } else {
+      startBut.remove();
+    }
+  }
+
+  const itemsToRender = res.block.inventory.filter(x => x.type === 'item');
+
+  // TODO: render as a table, too?
+  if (itemsToRender.length) {
+    const itemsDiv = createElement('div');
+    itemsDiv.parent(infBox);
+    itemsDiv.html('<u>Available items</u>:<br/>');
+    itemsDiv.elt.id = 'itemsdiv';
+
+    updateItemIcon(showX, showY, itemsToRender);
+    itemsToRender.forEach(itemCont => {
+      let item = itemCont.payload;
+      const itemDiv = createElement('div');
+      itemDiv.parent(itemsDiv);
+
+      attachButtonForItem(item, itemDiv, showX, showY);
+
+      let itemSpan = createElement('span');
+      itemSpan.parent(itemDiv);
+      itemSpan.html(`&nbsp;${getItemSig(item)} &mdash; <b>+${item.stat}</b> ${item.affect}`);
+    });
+    
+    createElement('br').parent(itemsDiv);
+  }
+
+  let notesItems = res.block.inventory.filter(x => x.type === 'note');
+  let notesCount = notesItems.length;
+  let notesAdded = 0;
+  let noteParent = infBox;
+  if (notesCount > 0) {
+    noteParent = createElement('table');
+    noteParent.elt.style.width = '100%';
+    noteParent.parent(infBox);
+    let header = createElement('tr').parent(noteParent);
+    let hRow = createElement('td').parent(header);
+    hRow.elt.colSpan = '2';
+    hRow.html(`<u>${notesCount} notes:</u>`);
+  }
+
+  notesItems.forEach(invItem => {
+    if (invItem.type === 'note') {
+      ++notesAdded;
+      let _s = createElement('tr');
+      _s.parent(noteParent);
+      let _ss = createElement('td').parent(_s);
+      _ss.html(`<span class='invitem-small'>A ${invItem.poster.species} ` + 
+        `named ${invItem.poster.name} said:</span><br/>` + 
+        `<span class='invitem-reg'>"${invItem.payload}"</span><br/>`);
+    }
+  });
+
+  if (notesAdded > 0) {
+    createElement('br').parent(infBox);
+  }
+
+  if (isCurrentAvatarLoc) {
+    const submitNote = () => {
+      const { name, species } = avatar;
+      faunaFetch(`world/${worldId}/block/${showX}/${showY}/add`, {
+        type: 'note',
+        payload: noteText.value(),
+        poster: Object.assign({ name, species }, { id: avatarId })
+      }).then(() => {
+        setTimeout(async () => {
+          const nBlock = await blockLoader(worldId, showX, showY);
+          setBlock(worldId, showX, showY, nBlock);
+        }, 100);
+        updateItemIcon(showX, showY, [noteText.value()]);
+      });
+    };
+
+    let noteDiv = createElement('div');
+    noteDiv.parent(infBox);
+
+    let noteText = createElement('input');
+    noteText.parent(noteDiv);
+    noteText.elt.style.width = '175px';
+    noteText.elt.style.fontSize = '80%';
+    noteText.elt.onkeydown = (keyEv) => {
+      if (keyEv.key === 'Enter') {
+        submitNote();
+      }
+    };
+
+    let noteBut = createElement('input');
+    noteBut.parent(noteDiv);
+    noteBut.elt.type = 'submit';
+    noteBut.elt.style.width = '120px';
+    noteBut.value('⏎ Make a note');
+
+    noteBut.elt.onclick = submitNote;
+  }
+};
+
+const curLocParams = (x, y) => {
+  const xAdj = Math.ceil(x / dims.res) - 1;
+  const yAdj = Math.ceil(y / dims.res) - 1;
+  const showX = Math.ceil(xAdj - dims.xoff);
+  const showY = Math.ceil(yAdj - dims.yoff);
+  const oNoise = showNoise(showX, showY);
+  if ('debug' in qs) { console.log(`curLocParams(${x}, ${y}) -> ${showX},${showY} -> ${oNoise}`); }
+
+  return { xAdj, yAdj, showX, showY, oNoise };
 };
 
 async function mapSetup() {
@@ -707,14 +1127,8 @@ async function mapSetup() {
   canvas = createCanvas(dims.w, dims.h);
   canvas.elt.style.border = '2px solid #aabbcc';
 
-  const infBox = select('#infobox');
   canvas.mouseClicked(async () => {
-    const xAdj = Math.ceil(mouseX / dims.res) - 1;
-    const yAdj = Math.ceil(mouseY / dims.res) - 1;
-    const showX = Math.ceil(xAdj - dims.xoff);
-    const showY = Math.ceil(yAdj - dims.yoff);
-    const oNoise = ourNoise(xAdj, yAdj);
-    const mlStr = `${showX},${showY}`;
+    const { showX, showY, oNoise } = curLocParams(mouseX, mouseY);
     
     const oBg = colorXform(oNoise);
     let oFgCA = oBg.map(x => 255 - x);
@@ -727,172 +1141,14 @@ async function mapSetup() {
 
     setSelectedLocation(showX, showY);
 
-    const updateItemIcon = (_items) => {
-      if (_items.length > 0 && !mapLocs[mlStr]) {
-        mapLocs[mlStr] = preloads['item.png'];
-      } else if (_items.length === 0 && mapLocs[mlStr]) {
-        delete mapLocs[mlStr];
-      }
-    };
-
-    const loadBlock = async (worldId, showX, showY, preloadedBlock) => {
-      let res;
-      let rootQStr = `world/${worldId}/block/${showX}/${showY}`;
-
-      if (!preloadedBlock) {
-        let qStr = `${rootQStr}?n=${oNoise}`;
-        res = await faunaFetch(qStr);
-      } else {
-        res = { block: preloadedBlock };
-      }
-
-      infBox.html(`<b>(${showX}, ${showY})</b> is <b>${res.block.type}</b> ` + 
-        (res.block.count > 0 ? `<br/>with <b>${res.block.count}</b> visitor${res.block.count == 1 ? '' : 's'}` : '') + '<br/><br/>');
-
-      let isCurrentAvatarLoc = false;
-
-      if (avatarLoc) {
-        let startBut = createElement('input');
-        startBut.elt.id = 'beginbut';
-        startBut.elt.type = 'submit';
-        startBut.elt.onclick = async () => {
-          startBut.elt.parentNode.removeChild(startBut.elt);
-          let newBlockInfo = await setAvatarLoc(showX, showY);
-          loadBlock(worldId, showX, showY, newBlockInfo);
-        };
-
-        if (!avatarLoc.cur) {
-          startBut.elt.value = 'Begin the journey here!';
-        }
-        else if (!(isCurrentAvatarLoc = avatarLoc.cur.x === showX && avatarLoc.cur.y === showY) &&
-          avatar.life > 0) {
-          startBut.elt.value = 'Fly here';
-        }
-
-        if (startBut.value().length > 0) {
-          startBut.parent(infBox);
-        } else {
-          startBut.remove();
-        }
-      }
-
-      const itemsToRender = res.block.inventory.filter(x => x.type === 'item' && x.payload.type === 'consumable');
-
-      // TODO: render as a table, too?
-      if (itemsToRender.length) {
-        const itemsDiv = createElement('div');
-        itemsDiv.parent(infBox);
-        itemsDiv.html('<u>Available items</u>:<br/>');
-        itemsDiv.elt.id = 'itemsdiv';
-
-        updateItemIcon(itemsToRender);
-        itemsToRender.forEach(itemCont => {
-          let item = itemCont.payload;
-          const itemDiv = createElement('div');
-          itemDiv.parent(itemsDiv);
-
-          let eatBut = createInput('Eat', 'submit');
-          eatBut.parent(itemDiv);
-          eatBut.class('eatbut');
-          eatBut.elt.id = `eat_item_${item.id.substring(0, 8)}`;
-
-          eatBut.elt.onclick = async () => {
-            eatBut.elt.disabled = true;
-            let res = await faunaFetch(`avatar/${avatarId}/loc`, { worldId: worldId, x: showX, y: showY, itemId: item.id });
-            if (res.success) {
-              updateItemIcon(res.block.inventory);
-              avatar = res.avatar;
-              updateAvatarInfo(showX, showY);
-              loadBlock(worldId, showX, showY, res.block);
-            }
-          };
-
-          if (avatar.life <= 0 || 
-            avatar.consumeAllowed <= 0 ||
-            !(avatar.loc && avatar.loc.x === showX && avatar.loc.y === showY)) {
-            eatBut.elt.disabled = true;
-          }
-
-          let itemSpan = createElement('span');
-          itemSpan.parent(itemDiv);
-          itemSpan.html(`&nbsp;"${item.name}", <b>+${item.stat}</b> ${item.affect}`);
-        });
-        createElement('br').parent(itemsDiv);
-      }
-
-      let notesItems = res.block.inventory.filter(x => x.type === 'note');
-      let notesCount = notesItems.length;
-      let notesAdded = 0;
-      let noteParent = infBox;
-      if (notesCount > 0) {
-        noteParent = createElement('table');
-        noteParent.elt.style.width = '100%';
-        noteParent.parent(infBox);
-        let header = createElement('tr').parent(noteParent);
-        let hRow = createElement('td').parent(header);
-        hRow.elt.colSpan = '2';
-        hRow.html(`<u>${notesCount} notes:</u>`);
-      }
-
-      notesItems.forEach(invItem => {
-        if (invItem.type === 'note') {
-          ++notesAdded;
-          let _s = createElement('tr');
-          _s.parent(noteParent);
-          let _ss = createElement('td').parent(_s);
-          _ss.html(`<span class='invitem-small'>A ${invItem.poster.species} ` + 
-            `named ${invItem.poster.name} said:</span><br/>` + 
-            `<span class='invitem-reg'>"${invItem.payload}"</span><br/>`);
-        }
-      });
-
-      if (notesAdded > 0) {
-        createElement('br').parent(infBox);
-      }
-
-      // only allow note submission if the player is at the block
-      if (isCurrentAvatarLoc) {
-        const submitNote = () => {
-          const { name, species } = avatar;
-          faunaFetch(`${rootQStr}/add`, {
-            type: 'note',
-            payload: noteText.value(),
-            poster: Object.assign({ name, species }, { id: avatarId })
-          }).then(() => {
-            setTimeout(() => loadBlock(worldId, showX, showY), 100);
-            updateItemIcon([noteText.value()]);
-          });
-        };
-
-        let noteDiv = createElement('div');
-        noteDiv.parent(infBox);
-
-        let noteText = createElement('input');
-        noteText.parent(noteDiv);
-        noteText.elt.style.width = '175px';
-        noteText.elt.style.fontSize = '80%';
-        noteText.elt.onkeydown = (keyEv) => {
-          if (keyEv.key === 'Enter') {
-            submitNote();
-          }
-        };
-
-        let noteBut = createElement('input');
-        noteBut.parent(noteDiv);
-        noteBut.elt.type = 'submit';
-        noteBut.elt.style.width = '120px';
-        noteBut.value('⏎ Make a note');
-
-        noteBut.elt.onclick = submitNote;
-      }
-    };
-
     if (worldId) {
+      const infBox = select('#infobox');
       infBox.elt.style.color = `rgb(${oFg[0]},${oFg[1]},${oFg[2]})`;
       infBox.elt.style.backgroundColor = `rgb(${oBg[0]},${oBg[1]},${oBg[2]})`;
       infBox.elt.style.border = `1px solid ${infBox.elt.style.color}`;
       infBox.html(`<i>loading <b>(${showX}, ${showY})</b>...</i>`);
-      await loadBlock(worldId, showX, showY);
+      const nBlock = await blockLoader(worldId, showX, showY);
+      await setBlock(worldId, showX, showY, nBlock);
     }
   })
 
@@ -909,7 +1165,6 @@ async function mapSetup() {
 
 async function speciesSelect(speciesKey) {
   let sbox = select('#speciesbox');
-  select('#attrexplainerbox').style('display', 'none');
   sbox.html('');
   select('#specieshdr').html(`This ${speciesSpec[speciesKey].displayName} shall be known as:`);
 
@@ -977,6 +1232,7 @@ async function userPrompt() {
 
     select('#attrmax').html(gameCfg.meta.statMax);
     select('#tranqmax').html(gameCfg.meta.tranquilityMax);
+    select('#attrcarry').html(gameCfg.meta.inventoryMax);
 
     let sbox = select('#speciesbox');
     let shtml = '<table id="speciestable"><tr>';
@@ -1008,12 +1264,14 @@ async function userPrompt() {
     sbox.html(shtml);
 
     let ibox = select('#itembox');
-    let ihtml = '<ul>';
-    gameCfg.items.consumable.forEach(item => {
-      ihtml += `<li>"<b>${item.name}</b>": <i>${(item.generate * 1e32) / 1e30}%</i> chance, ` +
-        `boosts <b>${item.affect}</b> by ${item.range[0]}-${item.range[1]}</li>`;
+    let ihtml = '<table style="width: 100%">';
+    ihtml += '<tr style="font-variant: small-caps;"><td>Name</td><td>Icon</td><td>Chance</td><td>Poss. Values</td><td>Adds</td></tr>';
+    Object.values(gameCfg.items).flat().forEach(item => {
+      ihtml += `<tr><td>${item.name}</td><td>${getItemSig(item)}</td><td><i>${(item.generate * 1e32) / 1e30}%</i></td><td>+` +
+        (item.range[0] === item.range[1] ? item.range[0] : `${item.range[0]}-${item.range[1]}`) +
+        `</td><td>${item.affect}</td>`;
     });
-    ibox.html(ihtml + '</ul>');
+    ibox.html(ihtml + '</table>');
   } else {
     await mapSetup();
   }
@@ -1028,6 +1286,7 @@ function preload() {
     config.preloadImages.forEach(asset => {
       loadImage(`assets/${asset}`, (loadedImg) => {
         preloads[asset] = loadedImg;
+        preloads[asset].__fauna_asset_name = asset;
         console.log(`loaded ${asset}`);
         loadingScr.e.html(loadingScr.e.html() + `Pre-loaded ${asset}<br/>`);
       })

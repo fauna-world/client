@@ -47,7 +47,7 @@ input:disabled {
   position: absolute;
   font-family: 'Courier New', Courier, monospace;
   font-size: 11pt;
-  top: 285px;
+  top: 425px;
   left: 10px;
   border-radius: 5px;
 }
@@ -133,7 +133,7 @@ input:disabled {
 
 #avbox {
   position: absolute;
-  width: 180px;
+  width: 20%;
   top: 10px;
   left: 10px;
   padding: 15px;
@@ -141,10 +141,41 @@ input:disabled {
 }
 
 #avstattable {
+  width: 95%;
+}
+
+#avatarinvtable {
+  margin-top: 15px;
   width: 100%;
+  border: 1px solid #aabbcc;
+  border-radius: 4px;
+  padding: 7px;
+  background-color: #001122;
+}
+
+#avinvtable {
+  width: 100%;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
 }
 
 .avstatname {
+  text-align: left;
+}
+
+.avtable {
+  width: 100%;
+}
+
+.avinv_name {
+  text-align: right;
+}
+
+.avinv_stat {
+  text-align: center;
+}
+
+.avinv_affect {
   text-align: left;
 }
 
@@ -317,14 +348,45 @@ h3 {
   padding: 3px 10px;
 }
 
+.tooltip_bot2 {
+  width: 150px;
+  top: 42px;
+  right: -40px;
+  padding: 3px 10px;
+}
+
+.tooltip_top2 {
+  width: 100px;
+  top: -42px;
+  right: -13px;
+  padding: 3px 10px;
+}
+
 .tooltip:hover .tooltiptext {
   visibility: visible;
+}
+
+.explimg {
+  border: 1px solid white;
+  border-radius: 3px;
 }
 
 .eatbut {
   height: 20px;
   width: 40px;
   font-size: 70%;
+}
+
+.pickupbut {
+  width: 65px;
+}
+
+.xbut {
+  height: 20px;
+  width: 25px;
+  padding: 0px;
+  margin: 0px;
+  font-size: 60%;
 }
 
 .attrexplainer {
@@ -363,4 +425,24 @@ h3 {
 
 .cellcent {
   text-align: center;
+}
+
+#devnote {
+  position: absolute;
+  padding: 15px;
+  top: 50px; 
+  right: -380px; 
+  width: 350px;
+  background-color: #001122;
+  border: 2px solid #aabbcc;
+  color: #ccddee;
+  border-radius: 6px;
+  float: right;
+}
+
+#devnotebody {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11pt;
+  font-weight: bolder;
+  line-height: 1.7;
 }

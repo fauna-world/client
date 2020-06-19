@@ -2,17 +2,12 @@ const ws = require('ws');
 const fs = require('fs');
 const url = require('url');
 const config = require('config');
-const { sanitize, NAME, VERSION } = require('./util');
+const { sanitize, NAME, VERSION, scoreCatHeadings } = require('./util');
 const { ALERT_CHAR, WARN_CHAR } = require('./style');
 
 const motdInterpolations = {
   NAME,
   VERSION
-};
-
-const scoreCatHeadings = {
-  'moved': 'Total distance flown',
-  'fromOrigin': 'Distance flown from start block'
 };
 
 const renderList = (heading, hdrEles, list, itemRenderer) => {
@@ -77,11 +72,11 @@ const slashCommands = {
   },
   scores: {
     desc: 'Query high scores',
-    detailDesc: 'Query the high scores in each category: without argument lists the top 5 scores in all categories, ' +
+    detailDesc: 'Query the high scores in each category: without argument lists the top 3 scores in all categories, ' +
       'with an argument lists the top 10 scores in that category.<br/><br/>Currently available category arguments: ' +
-      config.game.meta.allowedHighScoreTypes.map(x => `<b>${x}</b> ("${scoreCatHeadings[x]}")`).join(', ') + '',
+      Object.keys(scoreCatHeadings).map(x => `<b>${x}</b> ("${scoreCatHeadings[x]}")`).join(', ') + '',
     exec: async (_, wss, args) => {
-      let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 9 : 4);
+      let scores = await wss.engine.queryHighScores(args.length ? args[0] : '*', args.length ? 9 : 2);
 
       if (!scores) {
         return 'Invalid category';

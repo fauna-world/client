@@ -15,8 +15,11 @@
   <div id='loadingcontainer'>
     <div id='p5_loading' class='loadingclass'>Fauna loading...<br/><br/></div>
   </div>
+
   <div id='gameclock' class='userbox dispnone'></div>
+
   <div id='avbox' class='userbox dispnone'></div>
+
   <div id='chatbox' class='userbox dispnone sidebox'>
     <div id='chatmain'></div>
     <div id='chatform' class='dispnone'>
@@ -24,39 +27,118 @@
       <input type='submit' id='chatsend' value='⏎' class='chatctrl' />
     </div>
   </div>
+
   <div id='infobox' class='sidebox'></div>
 
   <div id='userbox' class='userbox dispnone'>
+
     <div id='ub_new' class='dispnone'>
+      <div id="devnote">
+        <h3>From the Developer:</h3><br/>
+        <span id="devnotebody">
+          This game is very much still an <i>active work-in-progress</i> &amp; while
+          it is written such that the world should exist forever, in reality expect that it
+          will be wiped &amp; begun anew at each major release. Please bear with us!<br/><br/>
+          Feedback is <i>highly enouraged</i> and very easy to provide via the
+          in-game <b>/feedback</b> command.<br/><br/>
+          The game's source code is freely available 
+          <a href="https://github.com/fauna-world/fauna" target="_blank">on GitHub</a>.<br/><br/>
+          Thank you very much for visiting &amp; please enjoy!<br/>
+        </span>
+      </div>
       <h3 id='specieshdr'>Species Selection</h3>
       <div id='speciesbox'></div>
       <br/>
       <div id='attrexplainerbox' style='text-align: center;'>
         <br/>
-        <h3>Gameplay Information</h3>
-        <div style="width: 100%; padding: 0 5%;">
-          <span class='explainertext'>Live long & prosper. Movement drains life & eating restores it.</span><br/><br/>
-          <span class='explainertext'>Items are only generated in the presence of a player, and species statistics affect the chance of generation.</span><br/><br/>
-          <span class='explainertext'>Each terrian type (except 'peaks') has a primary season during which item drops are more likely regardless of species attributes; hover over the clock to determine the which terrian type is affected.</span><br/><br/>
+        <div>
+          <h3>Attribute Information</h3>
+          <div class='attrexplainer'>
+            <ul>
+              <li>acuity &mdash; <span class='explainertext'>affects the maxiumum possible value of dropped items</span></li>
+              <li>mobility &mdash; <span class='explainertext'>affects how movement drains fauna life</span></li>
+              <li>tenacity &mdash; <span class='explainertext'>affects the chance the fauna will find items</span></li>
+              <li>tranquility &mdash; <span class='explainertext'>affects how much the fauna can consume at once</span></li>
+            </ul>
+          </div>
+          <span class='explainertext'>All with a maximum of <span id='attrmax'>?</span> except <span class='statname'>tranquility</span>, 
+            with a maximum of <span id='tranqmax'>?</span>.</span>
         </div>
-        <br/><br/>
-        <h3>Attribute Information</h3>
-        <span class='explainertext'>All with a maximum of <span id='attrmax'>?</span> except <span class='statname'>tranquility</span>, 
-          with a maximum of <span id='tranqmax'>?</span>.</span>
-        <div class='attrexplainer'>
-          <ul>
-            <li>acuity &mdash; <span class='explainertext'>affects the maxiumum possible value of dropped items</span></li>
-            <li>mobility &mdash; <span class='explainertext'>affects how movement drains fauna life</span></li>
-            <li>tenacity &mdash; <span class='explainertext'>affects the chance the fauna will find items</span></li>
-            <li>tranquility &mdash; <span class='explainertext'>affects how much the fauna can consume at once</span></li>
-          </ul>
+
+        <br/><br/><br/>
+
+        <div>
+          <h3>Gameplay Information</h3>
+          <div style="width: 100%; padding: 0 5%;">
+            <span class='explainertext'>
+              Live long & prosper. Movement drains life & eating restores it. Building nests restores full life.
+            </span><br/><br/>
+            <span class='explainertext'>
+              Items are only generated in the presence of a player, and species statistics affect the chance of generation.
+            </span><br/><br/>
+            <span class='explainertext'>
+              Each terrian type (except 'peaks') has a primary season during which item drops are more likely regardless of 
+              species attributes; hover over the clock to determine the which terrian type is affected.
+            </span><br/><br/>
+            <span class='explainertext'>
+              Fauna may only carry <span id='attrcarry'>?</span> items in their beaks at a time, 
+                and whilst carrying <i>any</i> items they are <i>unable to eat</i>.
+            </span><br/><br/>
+            <span class='explainertext'>
+              Territory is captured by <b>fully enclosing</b> a set of blocks
+              with <span style="font-variant: small-caps;">Nests</span>, creating a <span style="font-variant: small-caps;">Gardenspace</span>. 
+              Diagonal connections are not allowed; each 
+              <span style="font-variant: small-caps;">Nest</span> block must mate on-edge with two others, as illustrated here:
+              <br/><br/>
+              <table style="width: 100%">
+                <tr>
+                  <td>
+                    <span class="tooltip">
+                    <img class="explimg" src="http://static.fauna.computerpho.be/gs_cap_1__0.2.9.png" width=128/>
+                    <span class="tooltiptext tooltip_top2">All nests shown were built by the same hummingbird, so…</span>
+                  </span>
+                  </td>
+                  <td>&mdash;&gt;</td>
+                  <td>
+                    <span class="tooltip">
+                    <img class="explimg" src="http://static.fauna.computerpho.be/gs_cap_2__0.2.9.png" width=128/>
+                    <span class="tooltiptext tooltip_top2">…when they build a new nest in the final remaining empty block…</span>
+                  </span>
+                  </td>
+                  <td>&mdash;&gt;</td>
+                  <td>
+                    <span class="tooltip">
+                    <img class="explimg" src="http://static.fauna.computerpho.be/gs_cap_3__0.2.9.png" width=128/>
+                    <span class="tooltiptext tooltip_top2">…it will fully enclose the area, 
+                      creating a new <span style="font-variant: small-caps;">Gardenspace</span>…</span>
+                  </span>
+                  </td>
+                  <td>&mdash;&gt;</td>
+                  <td>
+                    <span class="tooltip">
+                    <img class="explimg" src="http://static.fauna.computerpho.be/gs_cap_4__0.2.9.png" width=128/>
+                    <span class="tooltiptext tooltip_top2">…and permantely capturing <i>all</i> enclosed blocks for the 
+                      <span style="font-variant: small-caps;">Fauna!</span></span>
+                  </span>
+                  </td>
+                </tr>
+              </table>
+            </span><br/>
+          </div>
         </div>
+
         <br/><br/>
-        <h3>Item Information</h3>
-        <span class='explainertext'>All below are <u>base</u> values</span>
-        <div class='attrexplainer explainertext' id='itembox'></div>
+
+        <div>
+          <h3>Item Information</h3>
+          <div class='attrexplainer explainertext' id='itembox'></div>
+          <span class='explainertext'>All are <i>base</i> values.</span>
+        </div>
+
+        <br/>
       </div>
     </div>
+
   </div>
 
   <div id='howbox' class='dispnone'>
