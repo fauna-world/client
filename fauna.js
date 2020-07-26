@@ -485,7 +485,7 @@ const allow_pos_offs = (v) => v <= 0;
 const ins = {
   xoff: gs.bind(null, 'xoff', allow_pos_offs, null),
   yoff: gs.bind(null, 'yoff', allow_pos_offs, null),
-  res: gs.bind(null, 'res', (v) => v >= 14 && (v % 2) === 0, null),
+  res: gs.bind(null, 'res', (v) => v >= 10 && (v % 2) === 0, null),
   scroll: gs.bind(null, 'ss', allow_pos, null),
   scrollStep: gs.bind(null, 'scrollStep', allow_pos, null),
   seed: gs.bind(null, 'seed', allow_any, null),
