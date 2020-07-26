@@ -3,8 +3,8 @@ const isLocal = location.hostname === 'localhost' ||
 	location.hostname.startsWith('10.0.');
 
 const config = {
-  host: isLocal ? `http://${location.hostname}:14024` : 'http://api.fauna.computerpho.be',
-  msgHost: isLocal ? `ws://${location.hostname}:14025` : 'ws://ws.api.fauna.computerpho.be',
+  host: isLocal ? `http://${location.hostname}:14024` : 'https://api.fauna.computerpho.be',
+  msgHost: isLocal ? `ws://${location.hostname}:14025` : 'wss://ws.api.fauna.computerpho.be',
   cookieName: 'faunaAvatar',
   heartbeat: 41,
   uiDefaults: {
