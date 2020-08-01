@@ -833,7 +833,7 @@ const buttonsSpec = {
     subtype: 'submit',
     class: 'eatbut pickupbut',
     action: 'pickup',
-    isDisabled: () => (avatar.inventory.length === gameCfg.meta.inventoryMax)
+    isDisabled: () => (avatar.inventory.length === gameCfg.meta.inventoryMax || avatar.inventory.some(x => x.type === 'growable'))
   },
   drop_inventory: {
     title: 'X',
@@ -841,6 +841,14 @@ const buttonsSpec = {
     class: '',
     action: 'drop',
     isDisabled: () => (avatar.inventory.length === 0)
+  },
+  growable: {
+    title: 'Pick up',
+    type: 'input',
+    subtype: 'submit',
+    class: 'eatbut pickupbut',
+    action: 'pickup',
+    isDisabled: () => (avatar.inventory.length > 0 || avatar.inventory.length === gameCfg.meta.inventoryMax)
   }
 };
 
