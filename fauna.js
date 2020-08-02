@@ -351,7 +351,7 @@ const updateAvatarInfo = async (x, y, block) => {
     else if (avatar.inventory.length === 1 && avatar.inventory[0].type === 'growable') {
       await refreshBlockIfNeeded();
       const isOwnedGSBlock = Object.entries(block.permanents).some(x => x[0] === 'gardenspace' && x[1].owner === avatarId);
-      const isEmptyGSBlock = !Object.keys(block.permanents).some(x => x === 'tree'); /// XXX
+      const isEmptyGSBlock = !Object.keys(block.permanents).some(x => x === 'growable'); /// XXX
 
       if (isOwnedGSBlock && isEmptyGSBlock) {
         const growableItem = avatar.inventory[0];
