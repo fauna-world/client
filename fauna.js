@@ -312,32 +312,52 @@ const updateAvatarInfo = async (x, y, block) => {
     td.parent(tr);
     td.html('&nbsp;');
 
-    if (woodAmt >= gameCfg.create.nest.requires.wood) {
+    const refreshBlockIfNeeded = async () => {
       if (!block && worldId) {
         const resp = await blockLoader(worldId, x, y);
         if (resp) {
           block = resp.block;
         }
       }
+    };
+
+    const createActionButton = (title, tooltip, onClick) => {
+      const mnBut = createElement('a', title);
+      mnBut.elt.href = '#';
+      mnBut.elt.onclick = onClick;
+
+      const sT = createElement('span');
+      sT.class('tooltip');
+
+      td.html('');
+      sT.parent(td);
+      mnBut.parent(sT);
+
+      const sTTxt = createElement('span');
+      sTTxt.class('tooltiptext tooltip_bot2');
+      sTTxt.html(tooltip);
+      sTTxt.parent(sT);
+    };
+
+    if (woodAmt >= gameCfg.create.nest.requires.wood) {
+      await refreshBlockIfNeeded();
 
       if (block && Object.entries(block.permanents).length === 0) {
-        const mnBut = createElement('a', 'Build Nest');
-        mnBut.elt.href = '#';
-        mnBut.elt.onclick = async () => {
+        createActionButton('Build Nest', `Requires <u>${gameCfg.create.nest.requires.wood}</u> wood`, async () => {
           await avatarActionOnClickHandler(x, y, null, 'create', 'nest');
-        };
+        });
+      }
+    }
+    else if (avatar.inventory.length === 1 && avatar.inventory[0].type === 'growable') {
+      await refreshBlockIfNeeded();
+      const isOwnedGSBlock = Object.entries(block.permanents).some(x => x[0] === 'gardenspace' && x[1].owner === avatarId);
+      const isEmptyGSBlock = !Object.keys(block.permanents).some(x => x === 'tree'); /// XXX
 
-        const sT = createElement('span');
-        sT.class('tooltip');
-
-        td.html('');
-        sT.parent(td);
-        mnBut.parent(sT);
-
-        const sTTxt = createElement('span');
-        sTTxt.class('tooltiptext tooltip_bot2');
-        sTTxt.html(`Requires <u>${gameCfg.create.nest.requires.wood}</u> wood`);
-        sTTxt.parent(sT);
+      if (isOwnedGSBlock && isEmptyGSBlock) {
+        const growableItem = avatar.inventory[0];
+        createActionButton('Plant Seed', `Will take ${growableItem.stat} years to grow to maturity`, async () => {
+          await avatarActionOnClickHandler(x, y, growableItem.id, 'plant', 'growable');
+        });
       }
     }
 
