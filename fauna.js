@@ -42,6 +42,11 @@ if (location.search) {
     a[x[0]] = x[1];
     return a;
   }, {});
+
+}
+
+if (location.hostname.indexOf('dev.') === 0) {
+  qs.debug = true;
 }
 
 const debugAppendMsg = (msg) => { if ('debug' in qs) { select('#howbox').html(select('#howbox').html() + `<pre>${msg}</pre>`); } };
